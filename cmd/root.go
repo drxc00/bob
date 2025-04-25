@@ -4,19 +4,49 @@ Copyright © 2025 Neil Patrick Villanueva npdvillanueva@gmail.com
 package cmd
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/drxc00/bob/internal/scan"
 	"github.com/spf13/cobra"
 )
+
+var scanCmd = &cobra.Command{
+	Use:   "scan [directory]",
+	Short: "Scan your development environment for clutter",
+	Long:  `Scan your development environment for clutter like node_modules folders`,
+	Args:  cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		scanPath := "." // Default to current directory
+		if len(args) > 0 {
+			scanPath = args[0]
+		}
+
+		// Print the path we're scanning
+		fmt.Printf("Scanning directory: %s\n", scanPath)
+
+		paths, err := scan.FindNodeModules(scanPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
+			os.Exit(1)
+		}
+
+		if len(paths) > 0 {
+			fmt.Printf("Found node_modules directories:\n")
+			for _, path := range paths {
+				fmt.Printf("- %s\n", path)
+			}
+		} else {
+			fmt.Println("No node_modules directories found")
+		}
+	},
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "bob",
 	Short: "Your Terminal Janitor for Cleaning Up Your Development Environment",
 	Long:  `bob is a lightweight, dependency-free CLI tool that helps you keep your development environment clean and clutter-free.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -29,13 +59,9 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
+	// Add all commands to the root command
+	rootCmd.AddCommand(scanCmd)
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.bob.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Add any command-specific flags here
+	// scanCmd.Flags().BoolP("recursive", "r", false, "Recursively scan subdirectories")
 }
