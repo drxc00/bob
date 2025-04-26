@@ -10,12 +10,12 @@ import (
 
 type ScannedNodeModule struct {
 	Path         string
-	Staleness    int32 // In days
+	Staleness    int64 // In days
 	Size         int64
 	LastModified time.Time
 }
 
-func NodeScan(path string) ([]ScannedNodeModule, error) {
+func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
 
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
@@ -40,12 +40,6 @@ func NodeScan(path string) ([]ScannedNodeModule, error) {
 			go func(nodeModulePath string) {
 				defer wg.Done()
 
-				// Get the size of the node_modules directory
-				dirSize, err := DirSize(nodeModulePath)
-				if err != nil {
-					// TODO: Handle error
-				}
-
 				// Get the last modified and accessed times of the directory containing the node_modules directory
 				// We do this so that we can know if the project has been updated since the last time we scanned it
 				// If we based it on the node_modules folder alone, it will not be accurate if the project does not have any new dependencies
@@ -56,14 +50,26 @@ func NodeScan(path string) ([]ScannedNodeModule, error) {
 				}
 
 				// Calculate the staleness of the node_modules directory
-				stalenessRaw := currentTime.Sub(parentDirectoryInfo.ModTime()).Hours() / 24
-				staleness := int32(stalenessRaw)
+				parentDirAge := currentTime.Sub(parentDirectoryInfo.ModTime()).Hours() / 24
+				nodeModuleStaleness := int64(parentDirAge)
 
+				if staleness != 0 && nodeModuleStaleness < staleness {
+					// We skip the node_modules directory if the staleness is less than the specified staleness
+					return
+				}
+
+				// Get the size of the node_modules directory
+				dirSize, err := DirSize(nodeModulePath)
+				if err != nil {
+					// TODO: Handle error
+				}
+
+				// Create and populate a ScannedNodeModule struct
 				scannedNodeModule := ScannedNodeModule{
 					Path:         nodeModulePath,
 					Size:         dirSize,
 					LastModified: parentDirectoryInfo.ModTime(),
-					Staleness:    staleness,
+					Staleness:    nodeModuleStaleness,
 				}
 
 				// Make sure that other goroutines don't modify the slice at the same time

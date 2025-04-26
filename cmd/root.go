@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/drxc00/bob/internal/scan"
+	"github.com/drxc00/bob/utils"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -22,14 +23,24 @@ var scanCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var scanPath string
 		stalenessFlag, err := cmd.Flags().GetString("staleness")
+		var stalenessFlagInt int64
+
+		fmt.Println("flag", stalenessFlag)
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error getting staleness flag: %v\n", err)
 			os.Exit(1)
 		}
 
-		if stalenessFlag == "" {
+		if stalenessFlag == "0" {
 			fmt.Println("Staleness flag not set, defaulting to 0")
+			stalenessFlagInt = 0
+		} else {
+			stalenessFlagInt, err = utils.ParseStalenessFlagValue(stalenessFlag)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error parsing staleness flag: %v\n", err)
+				os.Exit(1)
+			}
 		}
 
 		// Check the args
@@ -51,7 +62,7 @@ var scanCmd = &cobra.Command{
 		// Print the path we're scanning
 		fmt.Printf("Scanning directory: %s\n", scanPath)
 
-		scannedNodeModules, err := scan.NodeScan(scanPath)
+		scannedNodeModules, err := scan.NodeScan(scanPath, stalenessFlagInt)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
 		}
@@ -107,6 +118,9 @@ func init() {
 	rootCmd.AddCommand(scanCmd)
 
 	// Flags to scanCmd
-	scanCmd.Flags().StringP("staleness", "s", "0", "The staleness of the node_modules directory (days, hrs, mins, secs)")
+	scanCmd.Flags().StringP("staleness", "s", "0", `
+	The staleness of the node_modules directory. Accepts the following formats: 1d, 1h, 1m, 1s
+	If no units are specified, it defaults to days.
+	`)
 
 }
