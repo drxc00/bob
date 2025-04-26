@@ -1,4 +1,4 @@
-# bob
+# bob (WIP)
 
 A simple and lightweight CLI tool for cleaning up your development environment.
 
