@@ -8,9 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/drxc00/bob/internal/scan"
-	"github.com/drxc00/bob/utils"
-	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
@@ -21,26 +18,27 @@ var scanCmd = &cobra.Command{
 	Args:             cobra.MaximumNArgs(1),
 	TraverseChildren: true,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Vars
 		var scanPath string
-		stalenessFlag, err := cmd.Flags().GetString("staleness")
-		var stalenessFlagInt int64
 
-		fmt.Println("flag", stalenessFlag)
+		// Flags
+		nodeFlag, errNodeFlag := cmd.Flags().GetBool("node")
+		gitFlag, errGitFlag := cmd.Flags().GetBool("git")
+		stalenessFlag, errStalenessFlag := cmd.Flags().GetString("staleness")
 
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting staleness flag: %v\n", err)
+		if errStalenessFlag != nil {
+			fmt.Fprintf(os.Stderr, "Error getting staleness flag: %v\n", errStalenessFlag)
 			os.Exit(1)
 		}
 
-		if stalenessFlag == "0" {
-			fmt.Println("Staleness flag not set, defaulting to 0")
-			stalenessFlagInt = 0
-		} else {
-			stalenessFlagInt, err = utils.ParseStalenessFlagValue(stalenessFlag)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing staleness flag: %v\n", err)
-				os.Exit(1)
-			}
+		if errNodeFlag != nil {
+			fmt.Fprintf(os.Stderr, "Error getting node flag: %v\n", errNodeFlag)
+			os.Exit(1)
+		}
+
+		if errGitFlag != nil {
+			fmt.Fprintf(os.Stderr, "Error getting git flag: %v\n", errGitFlag)
+			os.Exit(1)
 		}
 
 		// Check the args
@@ -62,38 +60,16 @@ var scanCmd = &cobra.Command{
 		// Print the path we're scanning
 		fmt.Printf("Scanning directory: %s\n", scanPath)
 
-		scannedNodeModules, err := scan.NodeScan(scanPath, stalenessFlagInt)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
+		switch {
+		case nodeFlag:
+			scanNode(stalenessFlag, scanPath)
+		case gitFlag:
+			fmt.Println("Git flag not implemented yet")
+		default:
+			fmt.Println("No flags set, defaulting to node flag")
+			scanNode(stalenessFlag, scanPath)
 		}
 
-		fmt.Printf("Found %d node_modules directories\n", len(scannedNodeModules))
-
-		// Print
-
-		// Table printer
-		t := table.NewWriter()
-		t.SetStyle(table.StyleLight)
-		t.SetOutputMirror(os.Stdout)
-		t.AppendHeader(table.Row{"Path", "Size", "Staleness"})
-
-		for _, scannedNodeModule := range scannedNodeModules {
-			// fmt.Printf("- %s (size: %d bytes) - Staleness: %d days\n", scannedNodeModule.Path, scannedNodeModule.Size, scannedNodeModule.Staleness)
-			staleness := fmt.Sprintf("%d days", scannedNodeModule.Staleness)
-
-			var sizeStr string
-			if scannedNodeModule.Size > 1024 {
-				sizeStr = fmt.Sprintf("%.2f MB", float64(scannedNodeModule.Size)/1024/1024)
-			} else {
-				sizeStr = fmt.Sprintf("%d bytes", scannedNodeModule.Size)
-			}
-
-			t.AppendRow([]interface{}{scannedNodeModule.Path, sizeStr, staleness})
-			t.AppendSeparator()
-		}
-
-		// Render after loop
-		t.Render()
 	},
 }
 
@@ -122,5 +98,9 @@ func init() {
 	The staleness of the node_modules directory. Accepts the following formats: 1d, 1h, 1m, 1s
 	If no units are specified, it defaults to days.
 	`)
+
+	// Persistent flags
+	rootCmd.PersistentFlags().BoolP("node", "n", false, "Scan node_modules directories")
+	rootCmd.PersistentFlags().BoolP("git", "g", false, "Scan git repositories")
 
 }

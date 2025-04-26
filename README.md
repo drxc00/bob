@@ -1,36 +1,46 @@
 # bob
 
-A lightweight dependency-free CLI tool that helps you keep your development environment clean and clutter-free.
+A simple and lightweight CLI tool for cleaning up your development environment.
 
-## commands
+## Scan
 
-### scan
+Scan your development environment for clutter like node_modules folders.
+Returns a list of node_modules directories and their size and staleness (how long since the last time the directory was modified).
+This information is useful for identifying projects that haven't been updated in a while. We can then remove the node_modules folder to free up space.
+We can always add the node_modules folder back if we need it.
 
-```
-bob scan                  # Default: scan node_modules
-bob scan --all            # Scan all supported types
-bob scan --git            # Scan for git clutter (e.g. stale branches, large .git folders)
-bob scan --cache          # Scan for known cache folders (.cache, dist, build)
-bob scan --node           # Explicitly scan only node_modules (same as default)
-bob scan --path ./mydir   # Restrict scanning to a directory
-```
-
-### clean
+#### Usage
 
 ```
-bob clean --git           # Clean untracked git files or stale branches (optional, safe mode)
-bob clean --node          # Clean node_modules (default)
-bob clean --cache
+bob scan [directory] [flags]
+
+Flags:
+  -h, --help                help for scan
+  -s, --staleness string    The staleness of the node_modules directory (days, hrs, mins, secs)
+  -n, --node                Scan node_modules directories
+  -g, --git                 Scan git repositories
 ```
 
-### staleness
+#### Examples
 
 ```
-bob scan --node --staleness 30
-bob scan --git --staleness 180
-bob scan --cache --staleness 90
-
-bob clean --node --staleness 30
-bob clean --git --staleness 180
-bob clean --cache --staleness 90
+bob scan                                    # Scans the current directory (staleness defaults to 0)
+bob scan "<directory>"                      # Scans the specified directory (staleness defaults to 0)
+bob scan "<directory>" -s 1d                # Scans the specified directory and sets the staleness to 1 day
+bob scan "<directory>" --staleness 1d       # Scans the specified directory and sets the staleness to 1 day
 ```
+
+This retuns a table of the node_modules directories and their size and staleness.
+
+## Clean
+
+TODO
+
+## TODO Features
+
+- Clean command
+- Git integration (branches to clean, etc.)
+- Flags for clean command
+- Flags for scan command
+- Tests
+- Documentation
