@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -27,8 +28,6 @@ func NodeScan(path string) ([]ScannedNodeModule, error) {
 	currentTime := time.Now()
 
 	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-
-		var scannedNodeModule ScannedNodeModule = ScannedNodeModule{}
 		// Check if the walk function encountered an error
 		if err != nil {
 			return err
@@ -57,7 +56,7 @@ func NodeScan(path string) ([]ScannedNodeModule, error) {
 				}
 
 				// Calculate the staleness of the node_modules directory
-				stalenessRaw := currentTime.Sub(scannedNodeModule.LastModified).Hours() / 24
+				stalenessRaw := currentTime.Sub(parentDirectoryInfo.ModTime()).Hours() / 24
 				staleness := int32(stalenessRaw)
 
 				scannedNodeModule := ScannedNodeModule{
@@ -84,6 +83,7 @@ func NodeScan(path string) ([]ScannedNodeModule, error) {
 	wg.Wait()
 
 	if err != nil {
+		log.Fatal(err)
 		return []ScannedNodeModule{}, err
 	}
 
