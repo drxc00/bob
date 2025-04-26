@@ -6,10 +6,7 @@ _I wanted to learn go so I made this. I'm not a go expert, so there's probably a
 
 ## Scan
 
-Scan your development environment for clutter like node_modules folders.
-Returns a list of node_modules directories and their size and staleness (how long since the last time the directory was modified).
-This information is useful for identifying projects that haven't been updated in a while. We can then remove the node_modules folder to free up space.
-We can always add the node_modules folder back if we need it.
+Scan your development environment for clutter like node_modules folders, checks for stale git branches, and more in the future.
 
 #### Usage
 
@@ -18,7 +15,7 @@ bob scan [directory] [flags]
 
 Flags:
   -h, --help                help for scan
-  -s, --staleness string    The staleness of the node_modules directory (days, hrs, mins, secs)
+  -s, --staleness           The staleness of the node_modules directory.
   -n, --node                Scan node_modules directories
   -g, --git                 Scan git repositories
 ```
