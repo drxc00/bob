@@ -6,39 +6,83 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/drxc00/bob/internal/scan"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
 var scanCmd = &cobra.Command{
-	Use:   "scan [directory]",
-	Short: "Scan your development environment for clutter",
-	Long:  `Scan your development environment for clutter like node_modules folders`,
-	Args:  cobra.MaximumNArgs(1),
+	Use:              "scan [directory] [flags]",
+	Short:            "Scan your development environment for clutter",
+	Long:             `Scan your development environment for clutter like node_modules folders`,
+	Args:             cobra.MaximumNArgs(1),
+	TraverseChildren: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		scanPath := "." // Default to current directory
+		var scanPath string
+		stalenessFlag, err := cmd.Flags().GetString("staleness")
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting staleness flag: %v\n", err)
+			os.Exit(1)
+		}
+
+		if stalenessFlag == "" {
+			fmt.Println("Staleness flag not set, defaulting to 0")
+		}
+
+		// Check the args
 		if len(args) > 0 {
 			scanPath = args[0]
+		} else {
+			// Set the current directory as the default scan path
+			// If no arguments are provided.
+			currentDir, err := os.Getwd() // Get the current directory
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Convert the current directory to a Windows path
+			scanPath = filepath.ToSlash(currentDir)
 		}
 
 		// Print the path we're scanning
 		fmt.Printf("Scanning directory: %s\n", scanPath)
 
-		paths, err := scan.FindNodeModules(scanPath)
+		scannedNodeModules, err := scan.NodeScan(scanPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
-			os.Exit(1)
 		}
 
-		if len(paths) > 0 {
-			fmt.Printf("Found node_modules directories:\n")
-			for _, path := range paths {
-				fmt.Printf("- %s\n", path)
+		fmt.Printf("Found %d node_modules directories\n", len(scannedNodeModules))
+
+		// Print
+
+		// Table printer
+		t := table.NewWriter()
+		t.SetStyle(table.StyleLight)
+		t.SetOutputMirror(os.Stdout)
+		t.AppendHeader(table.Row{"Path", "Size", "Staleness"})
+
+		for _, scannedNodeModule := range scannedNodeModules {
+			// fmt.Printf("- %s (size: %d bytes) - Staleness: %d days\n", scannedNodeModule.Path, scannedNodeModule.Size, scannedNodeModule.Staleness)
+			staleness := fmt.Sprintf("%d days", scannedNodeModule.Staleness)
+
+			var sizeStr string
+			if scannedNodeModule.Size > 1024 {
+				sizeStr = fmt.Sprintf("%.2f MB", float64(scannedNodeModule.Size)/1024/1024)
+			} else {
+				sizeStr = fmt.Sprintf("%d bytes", scannedNodeModule.Size)
 			}
-		} else {
-			fmt.Println("No node_modules directories found")
+
+			t.AppendRow([]interface{}{scannedNodeModule.Path, sizeStr, staleness})
+			t.AppendSeparator()
 		}
+
+		// Render after loop
+		t.Render()
 	},
 }
 
@@ -62,6 +106,7 @@ func init() {
 	// Add all commands to the root command
 	rootCmd.AddCommand(scanCmd)
 
-	// Add any command-specific flags here
-	// scanCmd.Flags().BoolP("recursive", "r", false, "Recursively scan subdirectories")
+	// Flags to scanCmd
+	scanCmd.Flags().StringP("staleness", "s", "0", "The staleness of the node_modules directory (days, hrs, mins, secs)")
+
 }
