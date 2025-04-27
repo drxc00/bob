@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drxc00/bob/utils"
+	"github.com/drxc00/bob/internal"
 )
 
 type ScannedNodeModule struct {
@@ -21,7 +21,7 @@ type ScannedNodeModule struct {
 
 func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
-	cache := utils.NewCache[ScannedNodeModule]("node_modules")
+	cache := internal.NewCache[ScannedNodeModule]("node_modules")
 	ok, loadErr := cache.Load()
 
 	if !ok && loadErr != nil {
