@@ -17,10 +17,6 @@ func scanNode(stalenessFlag string, scanPath string) {
 		scannedNodeModules []scan.ScannedNodeModule
 	)
 
-	// Cache handler
-	cache := utils.NewCache[scan.ScannedNodeModule](scanPath)
-	ok, err := cache.Load() // Returns true if the cache is loaded, false if it's not
-
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading cache: %v\n", err)
 	}
@@ -36,14 +32,10 @@ func scanNode(stalenessFlag string, scanPath string) {
 		}
 	}
 
-	if !ok || cache.IsExpired() {
-		scannedNodeModules, err = scan.NodeScan(scanPath, stalenessFlagInt)
+	scannedNodeModules, err = scan.NodeScan(scanPath, stalenessFlagInt)
 
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
-		}
-	} else {
-		scannedNodeModules = cache.GetAll() // Get all the cached data
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
 	}
 
 	fmt.Printf("Found %d node_modules directories\n", len(scannedNodeModules))

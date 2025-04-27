@@ -22,6 +22,12 @@ type ScannedNodeModule struct {
 func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
 	cache := utils.NewCache[ScannedNodeModule](path)
+	ok, loadErr := cache.Load()
+
+	if !ok && loadErr != nil {
+		log.Fatal(loadErr)
+		// Still continue scanning without caching
+	}
 
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
 	// Since we want to append to the slice of scannedNodeModules, we need to make sure that
@@ -43,6 +49,20 @@ func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 				return filepath.SkipDir
 			}
 			return err
+		}
+
+		// Check if the current path is in the cache
+		if _, ok := cache.Get(path); ok {
+			// If the path is in the cache, add it to the slice of scannedNodeModules
+			c, ok := cache.Get(path)
+			if !ok {
+				// If the path is in the cache but the data is not found, something went wrong
+				log.Fatal(err)
+				// so we want to continue scanning without caching
+			} else {
+				scannedNodeModules = append(scannedNodeModules, c)
+				return filepath.SkipDir // Short circuit the walk function
+			}
 		}
 
 		// If the path is a directory and it's named "node_modules"
