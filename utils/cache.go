@@ -20,15 +20,13 @@ type CachedData struct {
 
 type Cache[T any] struct {
 	Type     string       `json:"type"`     // Type of data, e.g., "node_modules", "git"
-	Dir      string       `json:"dir"`      // Directory where the cache data came from
 	Validity int64        `json:"validity"` // Cache expiration timestamp (Unix time)
 	Data     map[string]T `json:"data"`     // Map to hold the cached data, key is the identifier (e.g., path)
 }
 
-func NewCache[T any](dir string) *Cache[T] {
+func NewCache[T any](t string) *Cache[T] {
 	return &Cache[T]{
-		Type:     "node_modules",
-		Dir:      dir,
+		Type:     t,
 		Validity: time.Now().Add(time.Hour * 24).Unix(), // Expire after 24 hours by default
 		Data:     make(map[string]T),
 	}
