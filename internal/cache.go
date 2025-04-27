@@ -13,11 +13,6 @@ import (
 	"time"
 )
 
-type CachedData struct {
-	Path string `json:"path"`
-	Data any    `json:"data"`
-}
-
 type Cache[T any] struct {
 	Type     string       `json:"type"`     // Type of data, e.g., "node_modules", "git"
 	Validity int64        `json:"validity"` // Cache expiration timestamp (Unix time)
