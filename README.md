@@ -15,7 +15,7 @@ bob scan [directory] [flags]
 
 Flags:
   -h, --help                help for scan
-  -s, --staleness           The staleness of the node_modules directory.
+  -s, --staleness           The staleness of the scan (default "0")
   -n, --node                Scan node_modules directories
   -g, --git                 Scan git repositories
 ```
