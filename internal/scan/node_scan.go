@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/drxc00/bob/utils"
 )
 
 type ScannedNodeModule struct {
@@ -19,6 +21,7 @@ type ScannedNodeModule struct {
 
 func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
+	cache := utils.NewCache[ScannedNodeModule](path)
 
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
 	// Since we want to append to the slice of scannedNodeModules, we need to make sure that
@@ -87,6 +90,7 @@ func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 				// Make sure that other goroutines don't modify the slice at the same time
 				mutex.Lock()
 				scannedNodeModules = append(scannedNodeModules, scannedNodeModule)
+				cache.Set(nodeModulePath, scannedNodeModule)
 				mutex.Unlock()
 			}(path)
 
@@ -100,6 +104,14 @@ func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 	// Wait for all goroutines to finish
 	// If this is not added, the program will simply exit without any output
 	wg.Wait()
+
+	// Save the cache
+	saveErr := cache.Save()
+
+	if saveErr != nil {
+		log.Fatal(saveErr)
+		return []ScannedNodeModule{}, saveErr
+	}
 
 	if err != nil {
 		log.Fatal(err)

@@ -12,9 +12,18 @@ import (
 func scanNode(stalenessFlag string, scanPath string) {
 	// Vars
 	var (
-		stalenessFlagInt int64
-		err              error
+		stalenessFlagInt   int64
+		err                error
+		scannedNodeModules []scan.ScannedNodeModule
 	)
+
+	// Cache handler
+	cache := utils.NewCache[scan.ScannedNodeModule](scanPath)
+	ok, err := cache.Load() // Returns true if the cache is loaded, false if it's not
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading cache: %v\n", err)
+	}
 
 	if stalenessFlag == "0" {
 		fmt.Println("Staleness flag not set, defaulting to 0")
@@ -27,9 +36,14 @@ func scanNode(stalenessFlag string, scanPath string) {
 		}
 	}
 
-	scannedNodeModules, err := scan.NodeScan(scanPath, stalenessFlagInt)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
+	if !ok || cache.IsExpired() {
+		scannedNodeModules, err = scan.NodeScan(scanPath, stalenessFlagInt)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
+		}
+	} else {
+		scannedNodeModules = cache.GetAll() // Get all the cached data
 	}
 
 	fmt.Printf("Found %d node_modules directories\n", len(scannedNodeModules))
@@ -41,6 +55,7 @@ func scanNode(stalenessFlag string, scanPath string) {
 	t.AppendHeader(table.Row{"Path", "Size", "Staleness"})
 
 	for _, scannedNodeModule := range scannedNodeModules {
+
 		staleness := fmt.Sprintf("%d days", scannedNodeModule.Staleness)
 
 		var sizeStr string
