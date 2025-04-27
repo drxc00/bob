@@ -62,9 +62,6 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 				mutex.Lock()
 				scannedNodeModules = append(scannedNodeModules, module)
 				mutex.Unlock()
-			} else {
-				// Remove from cache if it doesn't meet criteria anymore
-				cache.Delete(p)
 			}
 		}
 
