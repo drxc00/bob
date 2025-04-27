@@ -19,7 +19,7 @@ type ScannedNodeModule struct {
 	LastModified time.Time
 }
 
-func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
+func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, error) {
 	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
 	cache := internal.NewCache[ScannedNodeModule]("node_modules")
 	ok, loadErr := cache.Load()
@@ -52,7 +52,7 @@ func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 		}
 
 		// Check if the current path is in the cache
-		if _, ok := cache.Get(path); ok && !cache.IsExpired() {
+		if _, ok := cache.Get(path); ok && !cache.IsExpired() && !noCache {
 			// If the path is in the cache, add it to the slice of scannedNodeModules
 			c, ok := cache.Get(path)
 			if !ok {

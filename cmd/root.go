@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -25,6 +27,7 @@ var scanCmd = &cobra.Command{
 		nodeFlag, errNodeFlag := cmd.Flags().GetBool("node")
 		gitFlag, errGitFlag := cmd.Flags().GetBool("git")
 		stalenessFlag, errStalenessFlag := cmd.Flags().GetString("staleness")
+		noCacheFlag, errNoCacheFlag := cmd.Flags().GetBool("no-cache")
 
 		if errStalenessFlag != nil {
 			fmt.Fprintf(os.Stderr, "Error getting staleness flag: %v\n", errStalenessFlag)
@@ -38,6 +41,11 @@ var scanCmd = &cobra.Command{
 
 		if errGitFlag != nil {
 			fmt.Fprintf(os.Stderr, "Error getting git flag: %v\n", errGitFlag)
+			os.Exit(1)
+		}
+
+		if errNoCacheFlag != nil {
+			fmt.Fprintf(os.Stderr, "Error getting no-cache flag: %v\n", errNoCacheFlag)
 			os.Exit(1)
 		}
 
@@ -58,16 +66,19 @@ var scanCmd = &cobra.Command{
 		}
 
 		// Print the path we're scanning
-		fmt.Printf("Scanning directory: %s\n", scanPath)
+		fmt.Printf("Scanning directory: %s (Cache: %v)\n", scanPath, !noCacheFlag)
 
 		switch {
 		case nodeFlag:
-			scanNode(stalenessFlag, scanPath)
+			start := time.Now()
+			scanNode(stalenessFlag, scanPath, noCacheFlag)
+			elapsed := time.Since(start)
+			log.Printf("Scan completed in %s (%s)", elapsed, elapsed.Round(time.Millisecond))
 		case gitFlag:
 			fmt.Println("Git flag not implemented yet")
 		default:
 			fmt.Println("No flags set, defaulting to node flag")
-			scanNode(stalenessFlag, scanPath)
+			scanNode(stalenessFlag, scanPath, noCacheFlag)
 		}
 
 	},
@@ -98,6 +109,7 @@ func init() {
 	The staleness of the node_modules directory. Accepts the following formats: 1d, 1h, 1m, 1s
 	If no units are specified, it defaults to days.
 	`)
+	scanCmd.Flags().BoolP("no-cache", "c", false, "Disable caching")
 
 	// Persistent flags
 	rootCmd.PersistentFlags().BoolP("node", "n", false, "Scan node_modules directories")

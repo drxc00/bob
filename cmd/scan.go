@@ -9,7 +9,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 )
 
-func scanNode(stalenessFlag string, scanPath string) {
+func scanNode(stalenessFlag string, scanPath string, noCache bool) {
 	// Vars
 	var (
 		stalenessFlagInt   int64
@@ -27,7 +27,7 @@ func scanNode(stalenessFlag string, scanPath string) {
 		}
 	}
 
-	scannedNodeModules, err = scan.NodeScan(scanPath, stalenessFlagInt)
+	scannedNodeModules, err = scan.NodeScan(scanPath, stalenessFlagInt, noCache)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
