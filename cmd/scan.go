@@ -18,7 +18,6 @@ func scanNode(stalenessFlag string, scanPath string) {
 	)
 
 	if stalenessFlag == "0" {
-		fmt.Println("Staleness flag not set, defaulting to 0")
 		stalenessFlagInt = 0
 	} else {
 		stalenessFlagInt, err = utils.ParseStalenessFlagValue(stalenessFlag)
