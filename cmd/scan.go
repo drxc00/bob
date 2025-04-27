@@ -17,10 +17,6 @@ func scanNode(stalenessFlag string, scanPath string) {
 		scannedNodeModules []scan.ScannedNodeModule
 	)
 
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading cache: %v\n", err)
-	}
-
 	if stalenessFlag == "0" {
 		fmt.Println("Staleness flag not set, defaulting to 0")
 		stalenessFlagInt = 0
