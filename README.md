@@ -1,6 +1,8 @@
 # bob (WIP)
+Your personal Bloat Observer and Buster — effortlessly scan, spot, and smash stale files, folders, and Git clutter across your projects.
 
-A simple and lightweight CLI tool for cleaning up your development environment.
+
+bob is a lightweight CLI tool that scans your projects for bloat — like unused node_modules, stale Git branches, and others — and helps you clean them up with simple, powerful commands. Built for developers who want faster, tidier, and more maintainable projects without the hassle.
 
 _I wanted to learn go so I made this. I'm not a go expert, so there's probably a lot of room for improvement._
 
