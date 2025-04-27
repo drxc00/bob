@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,23 +21,65 @@ type ScannedNodeModule struct {
 }
 
 func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, error) {
-	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
-	cache := internal.NewCache[ScannedNodeModule]("node_modules")
-	ok, loadErr := cache.Load()
-
-	if !ok && loadErr != nil {
-		log.Fatal(loadErr)
-		// Still continue scanning without caching
-	}
-
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
 	// Since we want to append to the slice of scannedNodeModules, we need to make sure that
 	// other goroutines don't modify the slice at the same time
 	var mutex sync.Mutex
 	var wg sync.WaitGroup
+	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
 
-	// Current Time for calculating staleness
+	// Cache handler
+	cache := internal.NewCache[ScannedNodeModule]("node_modules")
+	cacheLoaded := false
+
+	// Time for calculating staleness
 	currentTime := time.Now()
+
+	if !noCache {
+		ok, loadErr := cache.Load()
+		if ok && loadErr == nil {
+			cacheLoaded = true
+		} else if loadErr != nil {
+			log.Printf("Failed to load cache: %v", loadErr)
+		}
+	}
+
+	if cacheLoaded && !cache.IsExpired() && !noCache {
+		// Get all cached entries
+		cachedEntries := cache.GetAll()
+
+		// Filter cached entries based on staleness criteria
+		for p, module := range cachedEntries {
+			// Check if the path contains the current path
+			if !strings.Contains(p, path) {
+				continue
+			}
+
+			daysSinceModified := int64(currentTime.Sub(module.LastModified).Hours() / 24)
+
+			// If the module meets our staleness criteria, add it directly without scanning
+			if staleness == 0 || daysSinceModified >= staleness {
+				mutex.Lock()
+				scannedNodeModules = append(scannedNodeModules, module)
+				mutex.Unlock()
+			} else {
+				// Remove from cache if it doesn't meet criteria anymore
+				cache.Delete(p)
+			}
+		}
+
+		// If we have entries from cache and don't need a full rescan, return early
+		if len(scannedNodeModules) > 0 && !noCache {
+			// We could add a flag here to decide if we want to skip the scan completely
+			// For now, we'll continue to scan for any new directories not in cache
+		}
+	}
+
+	// Set of paths we've already processed from cache
+	processedPaths := make(map[string]bool)
+	for _, module := range scannedNodeModules {
+		processedPaths[module.Path] = true
+	}
 
 	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		// Check if the walk function encountered an error
@@ -67,6 +110,12 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 
 		// If the path is a directory and it's named "node_modules"
 		if info.IsDir() && info.Name() == "node_modules" {
+
+			// Immediate return if the path has already been processed
+			if processedPaths[path] {
+				return filepath.SkipDir
+			}
+
 			wg.Add(1)
 
 			go func(nodeModulePath string) {
@@ -126,11 +175,11 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 	wg.Wait()
 
 	// Save the cache
-	saveErr := cache.Save()
-
-	if saveErr != nil {
-		log.Fatal(saveErr)
-		return []ScannedNodeModule{}, saveErr
+	if !noCache {
+		saveErr := cache.Save()
+		if saveErr != nil {
+			log.Printf("Failed to save cache: %v", saveErr)
+		}
 	}
 
 	if err != nil {

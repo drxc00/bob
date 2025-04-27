@@ -31,13 +31,8 @@ func (c *Cache[T]) SetValidity(validity int64) {
 	c.Validity = validity
 }
 
-func (c *Cache[T]) GetAll() []T {
-	var data []T
-	for _, value := range c.Data {
-		data = append(data, value)
-	}
-
-	return data
+func (c *Cache[T]) GetAll() map[string]T {
+	return c.Data
 }
 
 func (c *Cache[T]) Get(identifier string) (T, bool) {
@@ -75,6 +70,7 @@ func (c *Cache[T]) Save() error {
 		if err := os.WriteFile(filename, b, 0644); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	return os.WriteFile(filename, b, 0644)
