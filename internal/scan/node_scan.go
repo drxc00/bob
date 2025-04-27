@@ -24,8 +24,8 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
 	// Since we want to append to the slice of scannedNodeModules, we need to make sure that
 	// other goroutines don't modify the slice at the same time
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
+	var mutex sync.Mutex  // Mutex for concurrent access to scannedNodeModules
+	var wg sync.WaitGroup // Wait group for parallel scanning
 	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
 
 	// Cache handler
@@ -116,7 +116,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 				return filepath.SkipDir
 			}
 
-			wg.Add(1)
+			wg.Add(1) // Add to the wait group
 
 			go func(nodeModulePath string) {
 				defer wg.Done()
