@@ -1,6 +1,8 @@
 package scan
 
 import (
+	"errors"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -30,6 +32,13 @@ func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		// Check if the walk function encountered an error
 		if err != nil {
+			// Check if the error is a permission error
+			if errors.Is(err, fs.ErrPermission) {
+				// We don't want to stop the walk function if we encounter a permission error
+				// We simply want to skip the directory
+				log.Printf("Skipping directory %s", err)
+				return filepath.SkipDir
+			}
 			return err
 		}
 
@@ -43,17 +52,19 @@ func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 				// Get the last modified and accessed times of the directory containing the node_modules directory
 				// We do this so that we can know if the project has been updated since the last time we scanned it
 				// If we based it on the node_modules folder alone, it will not be accurate if the project does not have any new dependencies
-				parentDirectory := filepath.Dir(nodeModulePath)
-				parentDirectoryInfo, err := os.Stat(parentDirectory)
+				parentDir := filepath.Dir(nodeModulePath)
+				parentDirInfo, err := os.Stat(parentDir)
+
 				if err != nil {
-					// TODO: Handle error
+					log.Fatal(err)
+					return
 				}
 
 				// Calculate the staleness of the node_modules directory
-				parentDirAge := currentTime.Sub(parentDirectoryInfo.ModTime()).Hours() / 24
-				nodeModuleStaleness := int64(parentDirAge)
+				// Calculate staleness in days
+				daysSinceModified := int64(currentTime.Sub(parentDirInfo.ModTime()).Hours() / 24)
 
-				if staleness != 0 && nodeModuleStaleness < staleness {
+				if staleness != 0 && daysSinceModified < staleness {
 					// We skip the node_modules directory if the staleness is less than the specified staleness
 					return
 				}
@@ -61,15 +72,16 @@ func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 				// Get the size of the node_modules directory
 				dirSize, err := DirSize(nodeModulePath)
 				if err != nil {
-					// TODO: Handle error
+					log.Fatal(err)
+					return
 				}
 
 				// Create and populate a ScannedNodeModule struct
 				scannedNodeModule := ScannedNodeModule{
 					Path:         nodeModulePath,
 					Size:         dirSize,
-					LastModified: parentDirectoryInfo.ModTime(),
-					Staleness:    nodeModuleStaleness,
+					LastModified: parentDirInfo.ModTime(),
+					Staleness:    daysSinceModified,
 				}
 
 				// Make sure that other goroutines don't modify the slice at the same time
@@ -86,6 +98,7 @@ func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 	})
 
 	// Wait for all goroutines to finish
+	// If this is not added, the program will simply exit without any output
 	wg.Wait()
 
 	if err != nil {
@@ -97,18 +110,18 @@ func NodeScan(path string, staleness int64) ([]ScannedNodeModule, error) {
 }
 
 func DirSize(path string) (int64, error) {
-	var size int64
+	var totalSize int64
 	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() {
-			size += info.Size()
+			totalSize += info.Size()
 		}
 		return nil
 	})
 	if err != nil {
 		return 0, err
 	}
-	return size, nil
+	return totalSize, nil
 }
