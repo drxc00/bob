@@ -92,14 +92,14 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 		processedPaths[module.Path] = true
 	}
 
-	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
 		// Check if the walk function encountered an error
 		if err != nil {
 			// Check if the error is a permission error
 			if errors.Is(err, fs.ErrPermission) {
 				// We don't want to stop the walk function if we encounter a permission error
 				// We simply want to skip the directory
-				log.Printf("Skipping directory %s", err)
+				log.Printf("Skipping directory %s", path)
 				return filepath.SkipDir
 			}
 			return err
@@ -122,7 +122,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 		}
 
 		// If the path is a directory and it's named "node_modules"
-		if info.IsDir() && info.Name() == "node_modules" {
+		if d.IsDir() && d.Name() == "node_modules" {
 
 			// Immediate return if the path has already been processed
 			if processedPaths[path] {
@@ -193,17 +193,17 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 	// If this is not added, the program will simply exit without any output
 	wg.Wait()
 
+	if err != nil {
+		utils.Log("Error when scanning: %v\n", err)
+		return []ScannedNodeModule{}, ScanInfo{}, err
+	}
+
 	// Save the cache
 	if !noCache {
 		saveErr := cache.Save()
 		if saveErr != nil {
 			utils.Log("Error when scanning: %v\n", saveErr)
 		}
-	}
-
-	if err != nil {
-		utils.Log("Error when scanning: %v\n", err)
-		return []ScannedNodeModule{}, ScanInfo{}, err
 	}
 
 	// Prevent division by zero
@@ -219,12 +219,18 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 
 func DirSize(path string) (int64, error) {
 	var totalSize int64
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {
-			utils.Log("Error when scanning: %v\n", err)
-			return nil // skip this file/dir
+			// Skip problematic files or directories
+			return nil
 		}
-		if !info.IsDir() {
+		if !d.IsDir() {
+			// Use Info() only if necessary (costs a syscall)
+			info, err := d.Info()
+			if err != nil {
+				// If we can't get file info, skip it
+				return nil
+			}
 			totalSize += info.Size()
 		}
 		return nil
