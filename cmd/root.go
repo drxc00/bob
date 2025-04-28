@@ -5,10 +5,8 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -65,15 +63,9 @@ var scanCmd = &cobra.Command{
 			scanPath = filepath.ToSlash(currentDir)
 		}
 
-		// Print the path we're scanning
-		fmt.Printf("Scanning directory: %s (Cache: %v)\n", scanPath, !noCacheFlag)
-
 		switch {
 		case nodeFlag:
-			start := time.Now()
 			scanNode(stalenessFlag, scanPath, noCacheFlag)
-			elapsed := time.Since(start)
-			log.Printf("Scan completed in %s (%s)", elapsed, elapsed.Round(time.Millisecond))
 		case gitFlag:
 			fmt.Println("Git flag not implemented yet")
 		default:
