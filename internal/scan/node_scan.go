@@ -28,8 +28,6 @@ type ScanInfo struct {
 
 func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, ScanInfo, error) {
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
-	// Since we want to append to the slice of scannedNodeModules, we need to make sure that
-	// other goroutines don't modify the slice at the same time
 	var mutex sync.Mutex  // Mutex for concurrent access to scannedNodeModules
 	var wg sync.WaitGroup // Wait group for parallel scanning
 	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
@@ -63,7 +61,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 				continue
 			}
 
-			// Add for stats
+			// Stats handler
 			mutex.Lock()
 			totalSize += module.Size
 			totalStaleness += float64(module.Staleness)
@@ -83,6 +81,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 		if len(scannedNodeModules) > 0 && !noCache {
 			// We could add a flag here to decide if we want to skip the scan completely
 			// For now, we'll continue to scan for any new directories not in cache
+			// TODO implement if needed
 		}
 	}
 
@@ -98,7 +97,6 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 			// Check if the error is a permission error
 			if errors.Is(err, fs.ErrPermission) {
 				// We don't want to stop the walk function if we encounter a permission error
-				// We simply want to skip the directory
 				log.Printf("Skipping directory %s", path)
 				return filepath.SkipDir
 			}
@@ -136,7 +134,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 
 				// Get the last modified and accessed times of the directory containing the node_modules directory
 				// We do this so that we can know if the project has been updated since the last time we scanned it
-				// If we based it on the node_modules folder alone, it will not be accurate if the project does not have any new dependencies
+				// If we based it on the node_modules folder alone, it will not be accurate.
 				parentDir := filepath.Dir(nodeModulePath)
 				parentDirInfo, err := os.Stat(parentDir)
 
@@ -145,7 +143,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 					return
 				}
 
-				// Calculate the staleness of the node_modules directory
+				// Calculate the staleness of the `node_modules` directory
 				// Calculate staleness in days
 				daysSinceModified := int64(currentTime.Sub(parentDirInfo.ModTime()).Hours() / 24)
 
