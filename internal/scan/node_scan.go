@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/drxc00/bob/internal"
+	"github.com/drxc00/bob/utils"
 )
 
 type ScannedNodeModule struct {
@@ -20,13 +21,20 @@ type ScannedNodeModule struct {
 	LastModified time.Time
 }
 
-func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, error) {
+type ScanInfo struct {
+	TotalSize    int64
+	AvgStaleness float64
+}
+
+func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, ScanInfo, error) {
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
 	// Since we want to append to the slice of scannedNodeModules, we need to make sure that
 	// other goroutines don't modify the slice at the same time
 	var mutex sync.Mutex  // Mutex for concurrent access to scannedNodeModules
 	var wg sync.WaitGroup // Wait group for parallel scanning
 	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
+	var totalSize int64 = 0
+	var totalStaleness float64 = 0
 
 	// Cache handler
 	cache := internal.NewCache[ScannedNodeModule]("node_modules")
@@ -54,6 +62,12 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 			if !strings.Contains(p, path) {
 				continue
 			}
+
+			// Add for stats
+			mutex.Lock()
+			totalSize += module.Size
+			totalStaleness += float64(module.Staleness)
+			mutex.Unlock()
 
 			daysSinceModified := int64(currentTime.Sub(module.LastModified).Hours() / 24)
 
@@ -97,10 +111,12 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 			c, ok := cache.Get(path)
 			if !ok {
 				// If the path is in the cache but the data is not found, something went wrong
-				log.Fatal(err)
+				utils.Log("Error when scanning: %v\n", err)
 				// so we want to continue scanning without caching
 			} else {
+				mutex.Lock()
 				scannedNodeModules = append(scannedNodeModules, c)
+				mutex.Unlock()
 				return filepath.SkipDir // Short circuit the walk function
 			}
 		}
@@ -125,7 +141,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 				parentDirInfo, err := os.Stat(parentDir)
 
 				if err != nil {
-					log.Fatal(err)
+					utils.Log("Error when scanning: %v\n", err)
 					return
 				}
 
@@ -141,9 +157,15 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 				// Get the size of the node_modules directory
 				dirSize, err := DirSize(nodeModulePath)
 				if err != nil {
-					log.Fatal(err)
+					utils.Log("Error when scanning: %v\n", err)
 					return
 				}
+
+				// Add for stats
+				mutex.Lock()
+				totalSize += dirSize
+				totalStaleness += float64(daysSinceModified)
+				mutex.Unlock()
 
 				// Create and populate a ScannedNodeModule struct
 				scannedNodeModule := ScannedNodeModule{
@@ -160,10 +182,6 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 				mutex.Unlock()
 			}(path)
 
-			// Signal that we're done with this directory
-			// Prevents any go routines from not being cleaned up
-			wg.Done()
-
 			// If a node_modules directory is found, stop walking the directory tree
 			return filepath.SkipDir
 		}
@@ -179,23 +197,32 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 	if !noCache {
 		saveErr := cache.Save()
 		if saveErr != nil {
-			log.Printf("Failed to save cache: %v", saveErr)
+			utils.Log("Error when scanning: %v\n", saveErr)
 		}
 	}
 
 	if err != nil {
-		log.Fatal(err)
-		return []ScannedNodeModule{}, err
+		utils.Log("Error when scanning: %v\n", err)
+		return []ScannedNodeModule{}, ScanInfo{}, err
 	}
 
-	return scannedNodeModules, nil
+	// Prevent division by zero
+	var avgStaleness float64 = 0
+	if len(scannedNodeModules) == 0 {
+		avgStaleness = 0
+	} else {
+		avgStaleness = totalStaleness / float64(len(scannedNodeModules))
+	}
+
+	return scannedNodeModules, ScanInfo{TotalSize: totalSize, AvgStaleness: avgStaleness}, nil
 }
 
 func DirSize(path string) (int64, error) {
 	var totalSize int64
 	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			utils.Log("Error when scanning: %v\n", err)
+			return nil // skip this file/dir
 		}
 		if !info.IsDir() {
 			totalSize += info.Size()
