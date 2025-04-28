@@ -16,8 +16,7 @@ import (
 // Define styles
 var (
 	baseStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("240"))
+			Foreground(lipgloss.Color("205"))
 	titleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("99")).
 			Bold(true)
@@ -28,11 +27,12 @@ var (
 
 // Model represents the application state
 type model struct {
-	spinner       spinner.Model
-	table         table.Model
-	isLoading     bool
-	scanComplete  bool
-	modules       []scan.ScannedNodeModule
+	spinner      spinner.Model
+	table        table.Model
+	isLoading    bool
+	scanComplete bool
+	modules      []scan.ScannedNodeModule
+	// skipedDirs    []string
 	scanPath      string
 	staleness     int64
 	noCache       bool
@@ -88,6 +88,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "up":
+			// Move up in the table
+			m.table.MoveUp(1)
+		case "down":
+			// Move down in the table
+			m.table.MoveDown(1)
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -165,6 +171,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
+
+		// case skipPathMsg:
+		// 	m.skipedDirs = append(m.skipedDirs, msg.path)
+		// 	return m, nil
 	}
 
 	return m, nil
@@ -186,15 +196,14 @@ func (m model) View() string {
 	}
 
 	if m.isLoading {
-		return baseStyle.Render(fmt.Sprintf("\n %s Scanning %s...\n\n",
-			m.spinner.View(), m.scanPath))
+		return baseStyle.Render(fmt.Sprintf("\n%s Scanning...\n\n", m.spinner.View()))
 	}
 
 	// Display results
 	var b strings.Builder
 
 	// Title
-	b.WriteString(titleStyle.Render(" bob scan [node_modules] "))
+	b.WriteString(titleStyle.Render(" Scan Result "))
 	b.WriteString("\n\n")
 
 	// Stats

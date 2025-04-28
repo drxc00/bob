@@ -97,7 +97,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 			// Check if the error is a permission error
 			if errors.Is(err, fs.ErrPermission) {
 				// We don't want to stop the walk function if we encounter a permission error
-				log.Printf("Skipping directory %s", path)
+				// log.Print(err)
 				return filepath.SkipDir
 			}
 			return err
