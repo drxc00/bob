@@ -10,6 +10,7 @@ package internal
 import (
 	"encoding/json"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type Cache[T any] struct {
 	Type     string       `json:"type"`     // Type of data, e.g., "node_modules", "git"
 	Validity int64        `json:"validity"` // Cache expiration timestamp (Unix time)
 	Data     map[string]T `json:"data"`     // Map to hold the cached data, key is the identifier (e.g., path)
+	mu       sync.RWMutex // Mutex to protect concurrent access
 }
 
 func NewCache[T any](t string) *Cache[T] {
@@ -24,18 +26,28 @@ func NewCache[T any](t string) *Cache[T] {
 		Type:     t,
 		Validity: time.Now().Add(time.Hour * 24).Unix(), // Expire after 24 hours by default
 		Data:     make(map[string]T),
+		mu:       sync.RWMutex{},
 	}
 }
 
 func (c *Cache[T]) SetValidity(validity int64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.Validity = validity
 }
 
 func (c *Cache[T]) GetAll() map[string]T {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	return c.Data
 }
 
 func (c *Cache[T]) Get(identifier string) (T, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	var data T
 	if _, ok := c.Data[identifier]; ok {
 		data = c.Data[identifier]
@@ -44,18 +56,29 @@ func (c *Cache[T]) Get(identifier string) (T, bool) {
 }
 
 func (c *Cache[T]) Set(identifier string, data T) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.Data[identifier] = data
 }
 
 func (c *Cache[T]) Delete(identifier string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	delete(c.Data, identifier)
 }
 
 func (c *Cache[T]) IsExpired() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	return time.Now().Unix() > c.Validity
 }
 
 func (c *Cache[T]) Save() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	// Save the cache data to the JSON file
 	b, err := json.Marshal(c)
 	if err != nil {
@@ -77,6 +100,9 @@ func (c *Cache[T]) Save() error {
 }
 
 func (c *Cache[T]) Load() (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	filename := getFileName(c.Type)
 
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
