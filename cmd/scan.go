@@ -13,26 +13,50 @@ import (
 	"github.com/drxc00/bob/utils"
 )
 
-// Define styles
+// --- Styles ---
+
 var (
-	baseStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("205"))
+	colorPrimary   = lipgloss.Color("205") // Purple
+	colorSecondary = lipgloss.Color("99")  // Pink
+	colorBorder    = lipgloss.Color("240") // Gray
+	colorSelected  = lipgloss.Color("57")  // Dark blue
+	colorError     = lipgloss.Color("9")   // Red
+	colorHighlight = lipgloss.Color("229") // Light Yellow
+
+	baseStyle  = lipgloss.NewStyle().Foreground(colorPrimary)
 	titleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("99")).
-			Bold(true)
-	// focusedStyle = lipgloss.NewStyle().
-	// 		BorderStyle(lipgloss.RoundedBorder()).
-	// 		BorderForeground(lipgloss.Color("62"))
+			Foreground(colorSecondary).
+			Bold(true).
+			Align(lipgloss.Center).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorBorder).
+			Padding(0, 2)
+
+	statsStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(colorBorder).
+			Padding(1, 2).
+			Align(lipgloss.Center)
+
+	errorStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorError).
+			Padding(1, 2).
+			Align(lipgloss.Center)
+
+	footerStyle = lipgloss.NewStyle().
+			Foreground(colorBorder).
+			Align(lipgloss.Center)
 )
 
-// Model represents the application state
+// --- Model ---
+
 type model struct {
-	spinner      spinner.Model
-	table        table.Model
-	isLoading    bool
-	scanComplete bool
-	modules      []scan.ScannedNodeModule
-	// skipedDirs    []string
+	spinner       spinner.Model
+	table         table.Model
+	isLoading     bool
+	scanComplete  bool
+	modules       []scan.ScannedNodeModule
 	scanPath      string
 	staleness     int64
 	noCache       bool
@@ -42,12 +66,12 @@ type model struct {
 	avgStaleness  float64
 }
 
-// Initialize the model
+// --- Init Functions ---
+
 func initialModel(scanPath string, staleness int64, noCache bool) model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-
+	s.Style = baseStyle
 	return model{
 		spinner:      s,
 		isLoading:    true,
@@ -58,14 +82,12 @@ func initialModel(scanPath string, staleness int64, noCache bool) model {
 	}
 }
 
-// scanResultMsg is returned when the scan is complete
 type scanResultMsg struct {
 	modules []scan.ScannedNodeModule
 	stats   scan.ScanInfo
 	err     error
 }
 
-// scanCmd starts the scan in a goroutine and returns the result
 func startScan(path string, staleness int64, noCache bool) tea.Cmd {
 	return func() tea.Msg {
 		modules, stats, err := scan.NodeScan(path, staleness, noCache)
@@ -73,7 +95,8 @@ func startScan(path string, staleness int64, noCache bool) tea.Cmd {
 	}
 }
 
-// Init initializes the model
+// --- BubbleTea Handlers ---
+
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
@@ -81,7 +104,6 @@ func (m model) Init() tea.Cmd {
 	)
 }
 
-// Update handles messages
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -89,37 +111,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "up":
-			// Move up in the table
 			m.table.MoveUp(1)
 		case "down":
-			// Move down in the table
 			m.table.MoveDown(1)
 		}
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-
-		// Adjust table width
+		m.width, m.height = msg.Width, msg.Height
 		if m.scanComplete {
-			m.table.SetWidth(msg.Width - 4)
-			m.table.SetHeight(msg.Height - 10)
+			m.table.SetWidth(m.width - 4)
+			m.table.SetHeight(m.height - 10)
 		}
-
 	case scanResultMsg:
 		m.isLoading = false
 		m.scanComplete = true
 		m.modules = msg.modules
 		m.err = msg.err
-
 		m.totalSize = msg.stats.TotalSize
 		m.avgStaleness = msg.stats.AvgStaleness
 
-		if m.err != nil || msg.err != nil {
-			utils.Log("Error when scanning: %v\n", m.err)
+		if m.err != nil {
+			utils.Log("Error scanning: %v\n", m.err)
 			return m, tea.Quit
 		}
 
-		// Create the table
 		columns := []table.Column{
 			{Title: "PATH", Width: 50},
 			{Title: "SIZE", Width: 15},
@@ -128,20 +142,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		var rows []table.Row
 		for _, module := range m.modules {
-			staleness := fmt.Sprintf("%d days", module.Staleness)
-
-			// Format size
-			var sizeStr string
-			if module.Size > 1024*1024 {
-				sizeStr = fmt.Sprintf("%.2f MB", float64(module.Size)/1024/1024)
-			} else if module.Size > 1024 {
-				sizeStr = fmt.Sprintf("%.2f KB", float64(module.Size)/1024)
-			} else {
-				sizeStr = fmt.Sprintf("%d bytes", module.Size)
-			}
-
-			// Add row
-			rows = append(rows, table.Row{module.Path, sizeStr, staleness})
+			rows = append(rows, table.Row{
+				module.Path,
+				utils.FormatSize(module.Size),
+				utils.ColorCodedStaleness(module.Staleness),
+			})
 		}
 
 		t := table.New(
@@ -151,17 +156,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			table.WithHeight(m.height-10),
 		)
 
-		// Style the table
 		s := table.DefaultStyles()
-		s.Header = s.Header.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			BorderBottom(true).
-			Bold(true)
-		s.Selected = s.Selected.
-			Foreground(lipgloss.Color("229")).
-			Background(lipgloss.Color("57")).
-			Bold(true)
+		s.Header = s.Header.BorderStyle(lipgloss.NormalBorder()).BorderForeground(colorBorder).BorderBottom(true).Bold(true)
+		s.Selected = s.Selected.Foreground(colorHighlight).Background(colorSelected).Bold(true)
 		t.SetStyles(s)
 
 		m.table = t
@@ -171,53 +168,51 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
-
-		// case skipPathMsg:
-		// 	m.skipedDirs = append(m.skipedDirs, msg.path)
-		// 	return m, nil
 	}
 
 	return m, nil
 }
 
-// View renders the current model
 func (m model) View() string {
 	if m.err != nil {
-		errStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("9")). // red
-			Padding(1, 2).
-			Width(m.width - 4)
-
-		return errStyle.Render(fmt.Sprintf(
-			"An error occurred:\n\n%s\n\nPress q to quit.",
+		return errorStyle.Render(fmt.Sprintf(
+			"\nAn error occurred:\n\n%s\n\nPress q to quit.",
 			m.err.Error(),
 		))
 	}
 
 	if m.isLoading {
-		return baseStyle.Render(fmt.Sprintf("\n%s Scanning...\n\n", m.spinner.View()))
+		return baseStyle.Render(fmt.Sprintf("\n%s Scanning...\n", m.spinner.View()))
 	}
 
-	// Display results
 	var b strings.Builder
 
 	// Title
-	b.WriteString(titleStyle.Render(" Scan Result "))
+	b.WriteString("\n")
+	b.WriteString(titleStyle.Render(" SCAN RESULTS "))
 	b.WriteString("\n\n")
 
-	// Stats
-	b.WriteString(fmt.Sprintf(" Found %d node_modules directories\n", len(m.modules)))
-	b.WriteString(fmt.Sprintf(" Total size: %.2f MB | Avg staleness: %.2f days\n",
-		float64(m.totalSize)/1024/1024, m.avgStaleness))
+	// Path + Settings
 	b.WriteString(fmt.Sprintf(" Path: %s | Staleness: %d days | Cache: %t\n\n",
 		m.scanPath, m.staleness, !m.noCache))
+
+	// Stats with nice border
+	stats := fmt.Sprintf(
+		"Found %d node_modules directories\nTotal Size: %.2f MB | Avg Staleness: %.2f days",
+		len(m.modules),
+		float64(m.totalSize)/1024/1024,
+		m.avgStaleness,
+	)
+	b.WriteString(statsStyle.Render(stats))
+	b.WriteString("\n\n")
 
 	// Table
 	b.WriteString(m.table.View())
 
 	// Footer
-	b.WriteString("\n\n Press q to quit • Arrow keys to navigate\n")
+	b.WriteString("\n")
+	b.WriteString(footerStyle.Render("Press q to quit • Arrow keys to navigate"))
+	b.WriteString("\n")
 
 	return b.String()
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +25,12 @@ type ScannedNodeModule struct {
 type ScanInfo struct {
 	TotalSize    int64
 	AvgStaleness float64
+}
+
+func sortScannedNodeModules(modules *[]ScannedNodeModule) {
+	sort.Slice(*modules, func(i, j int) bool {
+		return (*modules)[i].Staleness > (*modules)[j].Staleness
+	})
 }
 
 func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, ScanInfo, error) {
@@ -195,6 +202,9 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 		utils.Log("Error when scanning: %v\n", err)
 		return []ScannedNodeModule{}, ScanInfo{}, err
 	}
+
+	// Sort the scannedNodeModules by staleness
+	sortScannedNodeModules(&scannedNodeModules)
 
 	// Save the cache
 	if !noCache {
