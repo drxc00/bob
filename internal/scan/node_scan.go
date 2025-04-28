@@ -160,6 +160,10 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 				mutex.Unlock()
 			}(path)
 
+			// Signal that we're done with this directory
+			// Prevents any go routines from not being cleaned up
+			wg.Done()
+
 			// If a node_modules directory is found, stop walking the directory tree
 			return filepath.SkipDir
 		}
