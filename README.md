@@ -8,7 +8,7 @@ _I wanted to learn go so I made this. I'm not a go expert, so there's probably a
 
 ## Scan
 
-Scan your development environment for clutter like node_modules folders, checks for stale git branches, and more (in the future).
+Scan your development environment for clutter like node_modules folders and more (in the future).
 Takes a directory as an argument and display stats about the directory given the flags. If no arguments are provided, it defaults to the current directory.
 
 #### Usage
@@ -20,21 +20,16 @@ Flags:
   -h, --help                help for scan
   -s, --staleness           The staleness of the scan (default "0")
   -n, --node                Scan node_modules directories
-  -g, --git                 Scan git repositories
   -c, --no-cache            Disable caching
 ```
 
 #### Examples
 
 ```
-bob scan                                                # Scans the current directory, staleness defaults to 0, node flag defaults to true
-bob scan --git                                          # Scans the current directory, staleness defaults to 0, git flag defaults to true
+bob scan --node                                         # Scans the current directory, staleness defaults to 0, git flag defaults to true
 bob scan --node "<directory>"                           # Scans the specified directory, staleness defaults to 0, node flag defaults to true
-bob scan --git "<directory>"                            # Scans the specified directory, staleness defaults to 0, git flag defaults to true
 bob scan --node "<directory>" -s 1d                     # Scans the specified directory and sets the staleness to 1 day, node flag defaults to true
-bob scan --git "<directory>" -s 1d                      # Scans the specified directory and sets the staleness to 1 day, git flag defaults to true
 bob scan --node "<directory>" --staleness 1d            # Scans the specified directory and sets the staleness to 1 day, node flag defaults to true
-bob scan --git "<directory>" --staleness 1d             # Scans the specified directory and sets the staleness to 1 day, git flag defaults to true
 bob scan --node "<directory>" --staleness 1d -no-cache  # Scans the specified directory and sets the staleness to 1 day, node flag defaults to true, and disables caching
 
 ```
