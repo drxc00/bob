@@ -12,9 +12,10 @@ type ScanContext struct {
 	NoCache    bool
 	ResetCache bool
 	Path       string
+	Verbose    bool
 }
 
-func NewScanContext(path string, staleness string, noCache bool, resetCache bool) ScanContext {
+func NewScanContext(path string, staleness string, noCache bool, resetCache bool, verbose bool) ScanContext {
 	var stalenessFlagInt int64
 	var err error
 
@@ -33,5 +34,6 @@ func NewScanContext(path string, staleness string, noCache bool, resetCache bool
 		Staleness:  stalenessFlagInt,
 		NoCache:    noCache,
 		ResetCache: resetCache,
+		Verbose:    verbose,
 	}
 }

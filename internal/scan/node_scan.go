@@ -2,6 +2,7 @@ package scan
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"os"
@@ -34,7 +35,7 @@ func sortScannedNodeModules(modules *[]ScannedNodeModule) {
 	})
 }
 
-func NodeScan(ctx types.ScanContext) ([]ScannedNodeModule, ScanInfo, error) {
+func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, ScanInfo, error) {
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
 	var mutex sync.Mutex  // Mutex for concurrent access to scannedNodeModules
 	var wg sync.WaitGroup // Wait group for parallel scanning
@@ -68,6 +69,9 @@ func NodeScan(ctx types.ScanContext) ([]ScannedNodeModule, ScanInfo, error) {
 			if !strings.Contains(p, ctx.Path) {
 				continue
 			}
+
+			// Send to channel
+			ch <- fmt.Sprintf("Found %s in cache", module.Path)
 
 			// Stats handler
 			mutex.Lock()
@@ -108,6 +112,9 @@ func NodeScan(ctx types.ScanContext) ([]ScannedNodeModule, ScanInfo, error) {
 			if errors.Is(err, fs.ErrPermission) {
 				// We don't want to stop the walk function if we encounter a permission error
 				// log.Print(err)
+				if ctx.Verbose {
+					ch <- fmt.Sprintf("Permission denied: %v", err)
+				}
 				return filepath.SkipDir
 			}
 			return err
@@ -122,6 +129,9 @@ func NodeScan(ctx types.ScanContext) ([]ScannedNodeModule, ScanInfo, error) {
 				utils.Log("Error when scanning: %v\n", err)
 				// so we want to continue scanning without caching
 			} else {
+				if ctx.Verbose {
+					ch <- fmt.Sprintf("Found %s in cache", c.Path)
+				}
 				mutex.Lock()
 				scannedNodeModules = append(scannedNodeModules, c)
 				mutex.Unlock()
@@ -135,6 +145,10 @@ func NodeScan(ctx types.ScanContext) ([]ScannedNodeModule, ScanInfo, error) {
 			// Immediate return if the path has already been processed
 			if processedPaths[p] {
 				return filepath.SkipDir
+			}
+
+			if ctx.Verbose {
+				ch <- fmt.Sprintf("Scanning %s", p)
 			}
 
 			wg.Add(1) // Add to the wait group
@@ -152,6 +166,9 @@ func NodeScan(ctx types.ScanContext) ([]ScannedNodeModule, ScanInfo, error) {
 
 				if err != nil {
 					utils.Log("Error when scanning: %v\n", err)
+					if ctx.Verbose {
+						ch <- fmt.Sprintf("Error when scanning: %v\n", err)
+					}
 					return
 				}
 
@@ -161,6 +178,9 @@ func NodeScan(ctx types.ScanContext) ([]ScannedNodeModule, ScanInfo, error) {
 
 				if lerr != nil {
 					utils.Log("Error when scanning: %v\n", lerr)
+					if ctx.Verbose {
+						ch <- fmt.Sprintf("Error when scanning: %v\n", lerr)
+					}
 					return
 				}
 
@@ -209,6 +229,9 @@ func NodeScan(ctx types.ScanContext) ([]ScannedNodeModule, ScanInfo, error) {
 	// Wait for all goroutines to finish
 	// If this is not added, the program will simply exit without any output
 	wg.Wait()
+
+	// Close the channel
+	close(ch)
 
 	if err != nil {
 		utils.Log("Error when scanning: %v\n", err)

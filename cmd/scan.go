@@ -48,6 +48,23 @@ var (
 	footerStyle = lipgloss.NewStyle().
 			Foreground(colorBorder).
 			Align(lipgloss.Center)
+
+	loadingBoxStyle = lipgloss.NewStyle().
+			BorderForeground(colorBorder).
+			Height(12).
+			Width(80).
+			MaxHeight(12).
+			MaxWidth(80).
+			Align(lipgloss.Left)
+
+	// Add a style for the progress text
+	progressTextStyle = lipgloss.NewStyle().
+				Width(76) // Slightly less than box width to account for padding
+
+	// Add a style for truncating long paths
+	pathStyle = lipgloss.NewStyle().
+			Width(76).
+			Foreground(colorPrimary)
 )
 
 // --- Model ---
@@ -61,6 +78,10 @@ type model struct {
 
 	// Config
 	ctx types.ScanContext
+
+	// Verbose
+	progressChan  chan string
+	scanningPaths []string
 
 	err           error
 	width, height int
@@ -79,6 +100,7 @@ func initialModel(ctx types.ScanContext) model {
 		isLoading:    true,
 		scanComplete: false,
 		ctx:          ctx,
+		progressChan: make(chan string, 1000),
 	}
 }
 
@@ -88,10 +110,26 @@ type scanResultMsg struct {
 	err     error
 }
 
-func startScan(ctx types.ScanContext) tea.Cmd {
+type scanProgressMsg struct {
+	path string
+}
+
+func startScan(ctx types.ScanContext, progressChan chan string) tea.Cmd {
+	return tea.Batch(
+		func() tea.Msg {
+			modules, stats, err := scan.NodeScan(ctx, progressChan)
+			return scanResultMsg{modules: modules, stats: stats, err: err}
+		},
+		listenForProgress(progressChan),
+	)
+}
+
+func listenForProgress(progressChan chan string) tea.Cmd {
 	return func() tea.Msg {
-		modules, stats, err := scan.NodeScan(ctx)
-		return scanResultMsg{modules: modules, stats: stats, err: err}
+		if p, ok := <-progressChan; ok {
+			return scanProgressMsg{path: p}
+		}
+		return nil
 	}
 }
 
@@ -100,7 +138,7 @@ func startScan(ctx types.ScanContext) tea.Cmd {
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		startScan(m.ctx),
+		startScan(m.ctx, m.progressChan),
 	)
 }
 
@@ -168,11 +206,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
+
+	case scanProgressMsg:
+		m.scanningPaths = append(m.scanningPaths, msg.path)
+		return m, listenForProgress(m.progressChan)
+
 	}
 
 	return m, nil
 }
 
+// Update the View method's loading section
 func (m model) View() string {
 	if m.err != nil {
 		return errorStyle.Render(fmt.Sprintf(
@@ -182,7 +226,36 @@ func (m model) View() string {
 	}
 
 	if m.isLoading {
-		return baseStyle.Render(fmt.Sprintf("\n%s Scanning...\n", m.spinner.View()))
+		var b strings.Builder
+
+		// Path + Settings
+		// b.WriteString(fmt.Sprintf(" Path: %s | Staleness: %d days | Cache: %t\n\n",
+		// 	m.ctx.Path, m.ctx.Staleness, !m.ctx.NoCache))
+
+		// Scanning status
+		status := fmt.Sprintf("%s Scanning for node_modules...", m.spinner.View())
+		b.WriteString(status)
+		b.WriteString("\n\n")
+
+		// Progress box
+		if m.ctx.Verbose && len(m.scanningPaths) > 0 {
+			start := 0
+			if len(m.scanningPaths) > 8 {
+				start = len(m.scanningPaths) - 8
+			}
+			var formattedPaths []string
+			for _, path := range m.scanningPaths[start:] {
+				// Truncate long paths with ellipsis
+				if len(path) > 76 {
+					path = path[:73] + "..."
+				}
+				formattedPaths = append(formattedPaths, pathStyle.Render(path))
+			}
+			paths := strings.Join(formattedPaths, "\n")
+			b.WriteString(loadingBoxStyle.Render(paths))
+		}
+
+		return baseStyle.Render(b.String())
 	}
 
 	var b strings.Builder

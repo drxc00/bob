@@ -26,6 +26,12 @@ var scanCmd = &cobra.Command{
 		stalenessFlag, errStalenessFlag := cmd.Flags().GetString("staleness")
 		noCacheFlag, errNoCacheFlag := cmd.Flags().GetBool("no-cache")
 		resetCacheFlag, errResetCacheFlag := cmd.Flags().GetBool("reset-cache")
+		verboseFlag, errVerboseFlag := cmd.Flags().GetBool("verbose")
+
+		if errVerboseFlag != nil {
+			fmt.Fprintf(os.Stderr, "Error getting verbose flag: %v\n", errVerboseFlag)
+			os.Exit(1)
+		}
 
 		if errResetCacheFlag != nil {
 			fmt.Fprintf(os.Stderr, "Error getting reset-cache flag: %v\n", errResetCacheFlag)
@@ -58,7 +64,12 @@ var scanCmd = &cobra.Command{
 			scanPath = filepath.ToSlash(currentDir)
 		}
 
-		ctx := types.NewScanContext(scanPath, stalenessFlag, noCacheFlag, resetCacheFlag)
+		ctx := types.NewScanContext(scanPath,
+			stalenessFlag,
+			noCacheFlag,
+			resetCacheFlag,
+			verboseFlag,
+		)
 
 		scanNode(ctx)
 
@@ -96,5 +107,6 @@ func init() {
 	// Persistent flags
 	// rootCmd.PersistentFlags().BoolP("node", "n", false, "Scan node_modules directories")
 	// rootCmd.PersistentFlags().BoolP("git", "g", false, "Scan git repositories")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 
 }
