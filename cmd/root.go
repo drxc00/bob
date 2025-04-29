@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/drxc00/bob/types"
 	"github.com/spf13/cobra"
 )
 
@@ -36,16 +37,6 @@ var scanCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// if errNodeFlag != nil {
-		// 	fmt.Fprintf(os.Stderr, "Error getting node flag: %v\n", errNodeFlag)
-		// 	os.Exit(1)
-		// }
-
-		// if errGitFlag != nil {
-		// 	fmt.Fprintf(os.Stderr, "Error getting git flag: %v\n", errGitFlag)
-		// 	os.Exit(1)
-		// }
-
 		if errNoCacheFlag != nil {
 			fmt.Fprintf(os.Stderr, "Error getting no-cache flag: %v\n", errNoCacheFlag)
 			os.Exit(1)
@@ -67,7 +58,9 @@ var scanCmd = &cobra.Command{
 			scanPath = filepath.ToSlash(currentDir)
 		}
 
-		scanNode(stalenessFlag, scanPath, noCacheFlag, resetCacheFlag)
+		ctx := types.NewScanContext(scanPath, stalenessFlag, noCacheFlag, resetCacheFlag)
+
+		scanNode(ctx)
 
 	},
 }

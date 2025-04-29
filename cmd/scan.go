@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/drxc00/bob/internal/scan"
+	"github.com/drxc00/bob/types"
 	"github.com/drxc00/bob/utils"
 )
 
@@ -52,15 +53,15 @@ var (
 // --- Model ---
 
 type model struct {
-	spinner       spinner.Model
-	table         table.Model
-	isLoading     bool
-	scanComplete  bool
-	modules       []scan.ScannedNodeModule
-	scanPath      string
-	staleness     int64
-	noCache       bool
-	resetCache    bool
+	spinner      spinner.Model
+	table        table.Model
+	isLoading    bool
+	scanComplete bool
+	modules      []scan.ScannedNodeModule
+
+	// Config
+	ctx types.ScanContext
+
 	err           error
 	width, height int
 	totalSize     int64
@@ -69,7 +70,7 @@ type model struct {
 
 // --- Init Functions ---
 
-func initialModel(scanPath string, staleness int64, noCache bool, resetCache bool) model {
+func initialModel(ctx types.ScanContext) model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = baseStyle
@@ -77,10 +78,7 @@ func initialModel(scanPath string, staleness int64, noCache bool, resetCache boo
 		spinner:      s,
 		isLoading:    true,
 		scanComplete: false,
-		scanPath:     scanPath,
-		staleness:    staleness,
-		noCache:      noCache,
-		resetCache:   resetCache,
+		ctx:          ctx,
 	}
 }
 
@@ -90,9 +88,9 @@ type scanResultMsg struct {
 	err     error
 }
 
-func startScan(path string, staleness int64, noCache bool, resetCache bool) tea.Cmd {
+func startScan(ctx types.ScanContext) tea.Cmd {
 	return func() tea.Msg {
-		modules, stats, err := scan.NodeScan(path, staleness, noCache, resetCache)
+		modules, stats, err := scan.NodeScan(ctx)
 		return scanResultMsg{modules: modules, stats: stats, err: err}
 	}
 }
@@ -102,7 +100,7 @@ func startScan(path string, staleness int64, noCache bool, resetCache bool) tea.
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		startScan(m.scanPath, m.staleness, m.noCache, m.resetCache),
+		startScan(m.ctx),
 	)
 }
 
@@ -196,7 +194,7 @@ func (m model) View() string {
 
 	// Path + Settings
 	b.WriteString(fmt.Sprintf(" Path: %s | Staleness: %d days | Cache: %t\n\n",
-		m.scanPath, m.staleness, !m.noCache))
+		m.ctx.Path, m.ctx.Staleness, !m.ctx.NoCache))
 
 	// Stats with nice border
 	stats := fmt.Sprintf(
@@ -220,24 +218,24 @@ func (m model) View() string {
 }
 
 // Function that starts the scan
-func scanNode(stalenessFlag string, scanPath string, noCache bool, resetCacheFlag bool) {
-	var stalenessFlagInt int64
-	var err error
+func scanNode(ctx types.ScanContext) {
 
-	// Parse staleness flag
-	if stalenessFlag == "0" {
-		stalenessFlagInt = 0
-	} else {
-		stalenessFlagInt, err = utils.ParseStalenessFlagValue(stalenessFlag)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing staleness flag: %v\n", err)
-			os.Exit(1)
-		}
-	}
+	// var err error
+
+	// // Parse staleness flag
+	// if ctx.Staleness == 0 {
+	// 	stalenessFlagInt = 0
+	// } else {
+	// 	stalenessFlagInt, err = utils.ParseStalenessFlagValue(stalenessFlag)
+	// 	if err != nil {
+	// 		fmt.Fprintf(os.Stderr, "Error parsing staleness flag: %v\n", err)
+	// 		os.Exit(1)
+	// 	}
+	// }
 
 	// Create and start the BubbleTea program
 	p := tea.NewProgram(
-		initialModel(scanPath, stalenessFlagInt, noCache, resetCacheFlag),
+		initialModel(ctx),
 		tea.WithAltScreen(),
 	)
 

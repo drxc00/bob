@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/drxc00/bob/internal"
+	"github.com/drxc00/bob/types"
 	"github.com/drxc00/bob/utils"
 )
 
@@ -33,7 +34,7 @@ func sortScannedNodeModules(modules *[]ScannedNodeModule) {
 	})
 }
 
-func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]ScannedNodeModule, ScanInfo, error) {
+func NodeScan(ctx types.ScanContext) ([]ScannedNodeModule, ScanInfo, error) {
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
 	var mutex sync.Mutex  // Mutex for concurrent access to scannedNodeModules
 	var wg sync.WaitGroup // Wait group for parallel scanning
@@ -48,7 +49,7 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 	// Time for calculating staleness
 	currentTime := time.Now()
 
-	if !noCache {
+	if !ctx.NoCache {
 		ok, loadErr := cache.Load()
 		if ok && loadErr == nil {
 			cacheLoaded = true
@@ -57,14 +58,14 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 		}
 	}
 
-	if cacheLoaded && !cache.IsExpired() && !noCache && !resetCache {
+	if cacheLoaded && !cache.IsExpired() && !ctx.NoCache && !ctx.ResetCache {
 		// Get all cached entries
 		cachedEntries := cache.GetAll()
 
 		// Filter cached entries based on staleness criteria
 		for p, module := range cachedEntries {
 			// Check if the path contains the current path
-			if !strings.Contains(p, path) {
+			if !strings.Contains(p, ctx.Path) {
 				continue
 			}
 
@@ -77,7 +78,7 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 			daysSinceModified := int64(currentTime.Sub(module.LastModified).Hours() / 24)
 
 			// If the module meets our staleness criteria, add it directly without scanning
-			if staleness == 0 || daysSinceModified >= staleness {
+			if ctx.Staleness == 0 || daysSinceModified >= ctx.Staleness {
 				mutex.Lock()
 				scannedNodeModules = append(scannedNodeModules, module)
 				mutex.Unlock()
@@ -85,7 +86,7 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 		}
 
 		// If we have entries from cache and don't need a full rescan, return early
-		if len(scannedNodeModules) > 0 && !noCache {
+		if len(scannedNodeModules) > 0 && !ctx.NoCache {
 			/*
 				We could add a flag here to decide if we want to skip the scan completely
 				For now, we'll continue to scan for any new directories not in cache
@@ -100,7 +101,7 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 		processedPaths[module.Path] = true
 	}
 
-	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(ctx.Path, func(p string, d fs.DirEntry, err error) error {
 		// Check if the walk function encountered an error
 		if err != nil {
 			// Check if the error is a permission error
@@ -113,9 +114,9 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 		}
 
 		// Check if the current path is in the cache
-		if _, ok := cache.Get(path); ok && !cache.IsExpired() && !noCache && !resetCache {
+		if _, ok := cache.Get(p); ok && !cache.IsExpired() && !ctx.NoCache && !ctx.ResetCache {
 			// If the path is in the cache, add it to the slice of scannedNodeModules
-			c, ok := cache.Get(path)
+			c, ok := cache.Get(p)
 			if !ok {
 				// If the path is in the cache but the data is not found, something went wrong
 				utils.Log("Error when scanning: %v\n", err)
@@ -132,7 +133,7 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 		if d.IsDir() && d.Name() == "node_modules" {
 
 			// Immediate return if the path has already been processed
-			if processedPaths[path] {
+			if processedPaths[p] {
 				return filepath.SkipDir
 			}
 
@@ -165,7 +166,7 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 
 				daysSinceModified := int64(currentTime.Sub(lastModified).Hours() / 24)
 
-				if staleness != 0 && daysSinceModified < staleness {
+				if ctx.Staleness != 0 && daysSinceModified < ctx.Staleness {
 					// We skip the node_modules directory if the staleness is less than the specified staleness
 					return
 				}
@@ -196,7 +197,7 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 				scannedNodeModules = append(scannedNodeModules, scannedNodeModule)
 				cache.Set(nodeModulePath, scannedNodeModule) // Save to cache handler
 				mutex.Unlock()
-			}(path)
+			}(p)
 
 			// If a node_modules directory is found, stop walking the directory tree
 			return filepath.SkipDir
@@ -222,7 +223,7 @@ func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]Sc
 		Or if we are using the --reset-cache flag.
 		This will override the cache and save the new data to the cache.
 	*/
-	if !noCache || resetCache {
+	if !ctx.NoCache || ctx.ResetCache {
 		saveErr := cache.Save()
 		if saveErr != nil {
 			utils.Log("Error when scanning: %v\n", saveErr)
