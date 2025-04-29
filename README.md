@@ -19,6 +19,7 @@ Flags:
   -s, --staleness           The staleness of the scan (default "0")
   -c, --no-cache            Perform a scan without the use of the cache
   -r, --reset-cach          Resets the cache when scanning
+  -v, --verbose             Verbose output
 ```
 
 #### Examples
