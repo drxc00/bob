@@ -33,7 +33,7 @@ func sortScannedNodeModules(modules *[]ScannedNodeModule) {
 	})
 }
 
-func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, ScanInfo, error) {
+func NodeScan(path string, staleness int64, noCache bool, resetCache bool) ([]ScannedNodeModule, ScanInfo, error) {
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
 	var mutex sync.Mutex  // Mutex for concurrent access to scannedNodeModules
 	var wg sync.WaitGroup // Wait group for parallel scanning
@@ -57,7 +57,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 		}
 	}
 
-	if cacheLoaded && !cache.IsExpired() && !noCache {
+	if cacheLoaded && !cache.IsExpired() && !noCache && !resetCache {
 		// Get all cached entries
 		cachedEntries := cache.GetAll()
 
@@ -86,9 +86,11 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 
 		// If we have entries from cache and don't need a full rescan, return early
 		if len(scannedNodeModules) > 0 && !noCache {
-			// We could add a flag here to decide if we want to skip the scan completely
-			// For now, we'll continue to scan for any new directories not in cache
-			// TODO implement if needed
+			/*
+				We could add a flag here to decide if we want to skip the scan completely
+				For now, we'll continue to scan for any new directories not in cache
+				TODO implement if needed
+			*/
 		}
 	}
 
@@ -111,7 +113,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 		}
 
 		// Check if the current path is in the cache
-		if _, ok := cache.Get(path); ok && !cache.IsExpired() && !noCache {
+		if _, ok := cache.Get(path); ok && !cache.IsExpired() && !noCache && !resetCache {
 			// If the path is in the cache, add it to the slice of scannedNodeModules
 			c, ok := cache.Get(path)
 			if !ok {
@@ -139,9 +141,11 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 			go func(nodeModulePath string) {
 				defer wg.Done()
 
-				// Get the last modified and accessed times of the directory containing the node_modules directory
-				// We do this so that we can know if the project has been updated since the last time we scanned it
-				// If we based it on the node_modules folder alone, it will not be accurate.
+				/*
+					Get the last modified and accessed times of the directory containing the node_modules directory
+					We do this so that we can know if the project has been updated since the last time we scanned it
+					If we based it on the node_modules folder alone, it will not be accurate.
+				*/
 				parentDir := filepath.Dir(nodeModulePath)
 				parentDirInfo, err := os.Stat(parentDir)
 
@@ -190,7 +194,7 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 				// Make sure that other goroutines don't modify the slice at the same time
 				mutex.Lock()
 				scannedNodeModules = append(scannedNodeModules, scannedNodeModule)
-				cache.Set(nodeModulePath, scannedNodeModule)
+				cache.Set(nodeModulePath, scannedNodeModule) // Save to cache handler
 				mutex.Unlock()
 			}(path)
 
@@ -213,8 +217,12 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 	// Sort the scannedNodeModules by staleness
 	sortScannedNodeModules(&scannedNodeModules)
 
-	// Save the cache
-	if !noCache {
+	/*
+		We only save the cache if we are not using the --no-cache flag
+		Or if we are using the --reset-cache flag.
+		This will override the cache and save the new data to the cache.
+	*/
+	if !noCache || resetCache {
 		saveErr := cache.Save()
 		if saveErr != nil {
 			utils.Log("Error when scanning: %v\n", saveErr)
@@ -258,7 +266,7 @@ func DirSize(path string) (int64, error) {
 
 func getLastModified(p string) (time.Time, error) {
 	/*
-		Accepts a directory path as input.
+		Accepts a directory path `p` as input.
 		This directory path is assumed as the parent directory of the node_modules directory.
 	*/
 

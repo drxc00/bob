@@ -22,25 +22,29 @@ var scanCmd = &cobra.Command{
 		var scanPath string
 
 		// Flags
-		nodeFlag, errNodeFlag := cmd.Flags().GetBool("node")
-		gitFlag, errGitFlag := cmd.Flags().GetBool("git")
 		stalenessFlag, errStalenessFlag := cmd.Flags().GetString("staleness")
 		noCacheFlag, errNoCacheFlag := cmd.Flags().GetBool("no-cache")
+		resetCacheFlag, errResetCacheFlag := cmd.Flags().GetBool("reset-cache")
+
+		if errResetCacheFlag != nil {
+			fmt.Fprintf(os.Stderr, "Error getting reset-cache flag: %v\n", errResetCacheFlag)
+			os.Exit(1)
+		}
 
 		if errStalenessFlag != nil {
 			fmt.Fprintf(os.Stderr, "Error getting staleness flag: %v\n", errStalenessFlag)
 			os.Exit(1)
 		}
 
-		if errNodeFlag != nil {
-			fmt.Fprintf(os.Stderr, "Error getting node flag: %v\n", errNodeFlag)
-			os.Exit(1)
-		}
+		// if errNodeFlag != nil {
+		// 	fmt.Fprintf(os.Stderr, "Error getting node flag: %v\n", errNodeFlag)
+		// 	os.Exit(1)
+		// }
 
-		if errGitFlag != nil {
-			fmt.Fprintf(os.Stderr, "Error getting git flag: %v\n", errGitFlag)
-			os.Exit(1)
-		}
+		// if errGitFlag != nil {
+		// 	fmt.Fprintf(os.Stderr, "Error getting git flag: %v\n", errGitFlag)
+		// 	os.Exit(1)
+		// }
 
 		if errNoCacheFlag != nil {
 			fmt.Fprintf(os.Stderr, "Error getting no-cache flag: %v\n", errNoCacheFlag)
@@ -63,15 +67,7 @@ var scanCmd = &cobra.Command{
 			scanPath = filepath.ToSlash(currentDir)
 		}
 
-		switch {
-		case nodeFlag:
-			scanNode(stalenessFlag, scanPath, noCacheFlag)
-		case gitFlag:
-			fmt.Println("Git flag not implemented yet")
-		default:
-			fmt.Println("No flags set, defaulting to node flag")
-			scanNode(stalenessFlag, scanPath, noCacheFlag)
-		}
+		scanNode(stalenessFlag, scanPath, noCacheFlag, resetCacheFlag)
 
 	},
 }
@@ -102,9 +98,10 @@ func init() {
 	If no units are specified, it defaults to days.
 	`)
 	scanCmd.Flags().BoolP("no-cache", "c", false, "Disable caching")
+	scanCmd.Flags().BoolP("reset-cache", "r", false, "Reset the cache")
 
 	// Persistent flags
-	rootCmd.PersistentFlags().BoolP("node", "n", false, "Scan node_modules directories")
-	rootCmd.PersistentFlags().BoolP("git", "g", false, "Scan git repositories")
+	// rootCmd.PersistentFlags().BoolP("node", "n", false, "Scan node_modules directories")
+	// rootCmd.PersistentFlags().BoolP("git", "g", false, "Scan git repositories")
 
 }

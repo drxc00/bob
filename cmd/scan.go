@@ -60,6 +60,7 @@ type model struct {
 	scanPath      string
 	staleness     int64
 	noCache       bool
+	resetCache    bool
 	err           error
 	width, height int
 	totalSize     int64
@@ -68,7 +69,7 @@ type model struct {
 
 // --- Init Functions ---
 
-func initialModel(scanPath string, staleness int64, noCache bool) model {
+func initialModel(scanPath string, staleness int64, noCache bool, resetCache bool) model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = baseStyle
@@ -79,6 +80,7 @@ func initialModel(scanPath string, staleness int64, noCache bool) model {
 		scanPath:     scanPath,
 		staleness:    staleness,
 		noCache:      noCache,
+		resetCache:   resetCache,
 	}
 }
 
@@ -88,9 +90,9 @@ type scanResultMsg struct {
 	err     error
 }
 
-func startScan(path string, staleness int64, noCache bool) tea.Cmd {
+func startScan(path string, staleness int64, noCache bool, resetCache bool) tea.Cmd {
 	return func() tea.Msg {
-		modules, stats, err := scan.NodeScan(path, staleness, noCache)
+		modules, stats, err := scan.NodeScan(path, staleness, noCache, resetCache)
 		return scanResultMsg{modules: modules, stats: stats, err: err}
 	}
 }
@@ -100,7 +102,7 @@ func startScan(path string, staleness int64, noCache bool) tea.Cmd {
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		startScan(m.scanPath, m.staleness, m.noCache),
+		startScan(m.scanPath, m.staleness, m.noCache, m.resetCache),
 	)
 }
 
@@ -218,7 +220,7 @@ func (m model) View() string {
 }
 
 // Function that starts the scan
-func scanNode(stalenessFlag string, scanPath string, noCache bool) {
+func scanNode(stalenessFlag string, scanPath string, noCache bool, resetCacheFlag bool) {
 	var stalenessFlagInt int64
 	var err error
 
@@ -235,7 +237,7 @@ func scanNode(stalenessFlag string, scanPath string, noCache bool) {
 
 	// Create and start the BubbleTea program
 	p := tea.NewProgram(
-		initialModel(scanPath, stalenessFlagInt, noCache),
+		initialModel(scanPath, stalenessFlagInt, noCache, resetCacheFlag),
 		tea.WithAltScreen(),
 	)
 
