@@ -152,7 +152,14 @@ func NodeScan(path string, staleness int64, noCache bool) ([]ScannedNodeModule, 
 
 				// Calculate the staleness of the `node_modules` directory
 				// Calculate staleness in days
-				daysSinceModified := int64(currentTime.Sub(parentDirInfo.ModTime()).Hours() / 24)
+				lastModified, lerr := getLastModified(parentDir)
+
+				if lerr != nil {
+					utils.Log("Error when scanning: %v\n", lerr)
+					return
+				}
+
+				daysSinceModified := int64(currentTime.Sub(lastModified).Hours() / 24)
 
 				if staleness != 0 && daysSinceModified < staleness {
 					// We skip the node_modules directory if the staleness is less than the specified staleness
@@ -247,4 +254,34 @@ func DirSize(path string) (int64, error) {
 		return 0, err
 	}
 	return totalSize, nil
+}
+
+func getLastModified(p string) (time.Time, error) {
+	/*
+		Accepts a directory path as input.
+		This directory path is assumed as the parent directory of the node_modules directory.
+	*/
+
+	var lastModified time.Time
+	err := filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			// Check the modification time of the file
+			if inf, err := d.Info(); err == nil {
+				if inf.ModTime().After(lastModified) {
+					lastModified = inf.ModTime()
+				}
+			}
+		}
+		return nil // Continue walking
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return lastModified, nil
 }
