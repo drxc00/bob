@@ -219,21 +219,6 @@ func (m model) View() string {
 
 // Function that starts the scan
 func scanNode(ctx types.ScanContext) {
-
-	// var err error
-
-	// // Parse staleness flag
-	// if ctx.Staleness == 0 {
-	// 	stalenessFlagInt = 0
-	// } else {
-	// 	stalenessFlagInt, err = utils.ParseStalenessFlagValue(stalenessFlag)
-	// 	if err != nil {
-	// 		fmt.Fprintf(os.Stderr, "Error parsing staleness flag: %v\n", err)
-	// 		os.Exit(1)
-	// 	}
-	// }
-
-	// Create and start the BubbleTea program
 	p := tea.NewProgram(
 		initialModel(ctx),
 		tea.WithAltScreen(),
