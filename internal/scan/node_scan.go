@@ -68,21 +68,17 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 				continue
 			}
 
-			// Send to channel
-			ch <- fmt.Sprintf("Found %s in cache", module.Path)
-
-			// Stats handler
-			mutex.Lock()
-			totalSize += module.Size
-			totalStaleness += float64(module.Staleness)
-			mutex.Unlock()
-
 			if ctx.Staleness != 0 && module.Staleness < ctx.Staleness {
 				continue
 			}
 
+			// Send to channel
+			ch <- fmt.Sprintf("Found %s in cache", module.Path)
+
 			// Add the module to the slice of scannedNodeModules
 			mutex.Lock()
+			totalSize += module.Size
+			totalStaleness += float64(module.Staleness)
 			scannedNodeModules = append(scannedNodeModules, module)
 			mutex.Unlock()
 		}
@@ -195,11 +191,10 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 				}
 
 				// Add for stats
+				// Make sure that other goroutines don't modify the slice at the same time
 				mutex.Lock()
 				totalSize += dirSize
 				totalStaleness += float64(daysSinceModified)
-				mutex.Unlock()
-
 				// Create and populate a ScannedNodeModule struct
 				scannedNodeModule := ScannedNodeModule{
 					Path:         nodeModulePath,
@@ -207,9 +202,6 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 					LastModified: parentDirInfo.ModTime(),
 					Staleness:    daysSinceModified,
 				}
-
-				// Make sure that other goroutines don't modify the slice at the same time
-				mutex.Lock()
 				scannedNodeModules = append(scannedNodeModules, scannedNodeModule)
 				cache.Set(nodeModulePath, scannedNodeModule) // Save to cache handler
 				mutex.Unlock()
