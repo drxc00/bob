@@ -12,11 +12,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var scanCmd = &cobra.Command{
-	Use:              "scan [directory] [flags]",
-	Short:            "Scan your development environment for clutter",
-	Long:             `Scan your development environment for clutter like node_modules folders`,
-	Args:             cobra.MaximumNArgs(1),
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
+	Use:              "sweepy",
+	Short:            "Your Terminal Janitor for Cleaning Up Your Development Environment",
+	Long:             `Sweepy is a lightweight, dependency-free CLI tool that helps you keep your development environment clean and clutter-free.`,
 	TraverseChildren: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Vars
@@ -76,13 +76,6 @@ var scanCmd = &cobra.Command{
 	},
 }
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "bob",
-	Short: "Your Terminal Janitor for Cleaning Up Your Development Environment",
-	Long:  `bob is a lightweight, dependency-free CLI tool that helps you keep your development environment clean and clutter-free.`,
-}
-
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -93,20 +86,15 @@ func Execute() {
 }
 
 func init() {
-	// Add all commands to the root command
-	rootCmd.AddCommand(scanCmd)
 
 	// Flags to scanCmd
-	scanCmd.Flags().StringP("staleness", "s", "0", `
+	rootCmd.Flags().StringP("staleness", "s", "0", `
 	The staleness of the node_modules directory. Accepts the following formats: 1d, 1h, 1m, 1s
 	If no units are specified, it defaults to days.
 	`)
-	scanCmd.Flags().BoolP("no-cache", "c", false, "Disable caching")
-	scanCmd.Flags().BoolP("reset-cache", "r", false, "Reset the cache")
-
-	// Persistent flags
-	// rootCmd.PersistentFlags().BoolP("node", "n", false, "Scan node_modules directories")
-	// rootCmd.PersistentFlags().BoolP("git", "g", false, "Scan git repositories")
+	rootCmd.Flags().BoolP("no-cache", "c", false, "Disable caching")
+	rootCmd.Flags().BoolP("reset-cache", "r", false, "Reset the cache")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+	rootCmd.Flags().BoolP("system", "y", false, "Scan the entire system for node_modules directories. Determines all drives and scans them.")
 
 }
