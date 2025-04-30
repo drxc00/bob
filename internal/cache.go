@@ -1,6 +1,5 @@
 /*
 	This package holds the mechanism for caching the results of the scans.
-	The cache is stored in specific file names, .bob-node-modules-cache.json and .bob-git-cache.json
 	The file names are hardcoded and cannot be changed.
 	The cache is stored in the user's home directory.
 */
@@ -49,6 +48,7 @@ func (c *Cache[T]) Get(identifier string) (T, bool) {
 	var data T
 	if _, ok := c.Data[identifier]; ok {
 		data = c.Data[identifier]
+		return data, true // Data found
 	}
 	return data, false
 }
