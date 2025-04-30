@@ -90,15 +90,16 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 		// If we have entries from cache and don't need a full rescan, return early
 		if len(scannedNodeModules) > 0 && !ctx.NoCache {
 			sortScannedNodeModules(&scannedNodeModules)
-			return scannedNodeModules, ScanInfo{TotalSize: totalSize, AvgStaleness: totalStaleness}, nil
+			scanDuration := time.Since(startTime)
+			return scannedNodeModules, ScanInfo{TotalSize: totalSize, AvgStaleness: totalStaleness, ScanDuration: scanDuration}, nil
 		}
 	}
 
 	// Set of paths we've already processed from cache
-	processedPaths := make(map[string]bool)
-	for _, module := range scannedNodeModules {
-		processedPaths[module.Path] = true
-	}
+	// processedPaths := make(map[string]bool)
+	// for _, module := range scannedNodeModules {
+	// 	processedPaths[module.Path] = true
+	// }
 
 	err := filepath.WalkDir(ctx.Path, func(p string, d fs.DirEntry, err error) error {
 		// Check if the walk function encountered an error
@@ -138,9 +139,9 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 		if d.IsDir() && d.Name() == "node_modules" {
 
 			// Immediate return if the path has already been processed
-			if processedPaths[p] {
-				return filepath.SkipDir
-			}
+			// if processedPaths[p] {
+			// 	return filepath.SkipDir
+			// }
 
 			if ctx.Verbose {
 				ch <- fmt.Sprintf("Scanning %s", p)
