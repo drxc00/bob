@@ -87,6 +87,7 @@ type model struct {
 	width, height int
 	totalSize     int64
 	avgStaleness  float64
+	scanDuration  string
 }
 
 // --- Init Functions ---
@@ -166,6 +167,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.err
 		m.totalSize = msg.stats.TotalSize
 		m.avgStaleness = msg.stats.AvgStaleness
+		m.scanDuration = msg.stats.ScanDuration.String()
 
 		if m.err != nil {
 			utils.Log("Error scanning: %v\n", m.err)
@@ -266,15 +268,16 @@ func (m model) View() string {
 	b.WriteString("\n\n")
 
 	// Path + Settings
-	b.WriteString(fmt.Sprintf(" Path: %s | Staleness: %d days | Cache: %t\n\n",
+	b.WriteString(fmt.Sprintf(" Path: %s | Staleness Flag: %d days | Cache: %t\n\n",
 		m.ctx.Path, m.ctx.Staleness, !m.ctx.NoCache))
 
 	// Stats with nice border
 	stats := fmt.Sprintf(
-		"Found %d node_modules directories\nTotal Size: %.2f MB | Avg Staleness: %.2f days",
+		"Found %d node_modules directories\nTotal Size: %.2f MB | Avg Staleness: %.2f days\nScan Duration: %s\n",
 		len(m.modules),
 		float64(m.totalSize)/1024/1024,
 		m.avgStaleness,
+		m.scanDuration,
 	)
 	b.WriteString(statsStyle.Render(stats))
 	b.WriteString("\n\n")
