@@ -57,9 +57,6 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 	}
 
 	if cacheLoaded && !cache.IsExpired() && !ctx.NoCache && !ctx.ResetCache {
-		// Get all cached entries
-		// cachedEntries := cache.GetAll()
-
 		// Filter cached entries based on staleness criteria
 		for p, module := range cache.Data {
 			// Check if the path contains the current path
@@ -88,11 +85,8 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 
 		// If we have entries from cache and don't need a full rescan, return early
 		if len(scannedNodeModules) > 0 && !ctx.NoCache {
-			/*
-				We could add a flag here to decide if we want to skip the scan completely
-				For now, we'll continue to scan for any new directories not in cache
-				TODO implement if needed
-			*/
+			sortScannedNodeModules(&scannedNodeModules)
+			return scannedNodeModules, ScanInfo{TotalSize: totalSize, AvgStaleness: totalStaleness}, nil
 		}
 	}
 
