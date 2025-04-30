@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/drxc00/bob/utils"
+	"github.com/drxc00/sweepy/utils"
 )
 
 type ScanContext struct {

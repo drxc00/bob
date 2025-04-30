@@ -12,7 +12,7 @@ import (
 func Log(format string, a ...any) {
 	log.SetOutput(os.Stdout)
 
-	filename := "bob_log.txt"
+	filename := "sweepy.logs.txt"
 
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {

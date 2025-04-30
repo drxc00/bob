@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/drxc00/bob/types"
+	"github.com/drxc00/sweepy/types"
 	"github.com/spf13/cobra"
 )
 

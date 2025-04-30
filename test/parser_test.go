@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"github.com/drxc00/bob/utils"
+	"github.com/drxc00/sweepy/utils"
 )
 
 func TestParseStalenessFlagValue(t *testing.T) {

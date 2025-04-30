@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drxc00/bob/internal"
-	"github.com/drxc00/bob/types"
-	"github.com/drxc00/bob/utils"
+	"github.com/drxc00/sweepy/internal"
+	"github.com/drxc00/sweepy/types"
+	"github.com/drxc00/sweepy/utils"
 )
 
 type ScannedNodeModule struct {
@@ -54,17 +53,15 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 		ok, loadErr := cache.Load()
 		if ok && loadErr == nil {
 			cacheLoaded = true
-		} else if loadErr != nil {
-			log.Printf("Failed to load cache: %v", loadErr)
 		}
 	}
 
 	if cacheLoaded && !cache.IsExpired() && !ctx.NoCache && !ctx.ResetCache {
 		// Get all cached entries
-		cachedEntries := cache.GetAll()
+		// cachedEntries := cache.GetAll()
 
 		// Filter cached entries based on staleness criteria
-		for p, module := range cachedEntries {
+		for p, module := range cache.Data {
 			// Check if the path contains the current path
 			if !strings.Contains(p, ctx.Path) {
 				continue
@@ -174,7 +171,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 
 				// Calculate the staleness of the `node_modules` directory
 				// Calculate staleness in days
-				lastModified, lerr := getLastModified(parentDir)
+				lastModified, lerr := GetLastModified(parentDir)
 
 				if lerr != nil {
 					utils.Log("Error when scanning: %v\n", lerr)
@@ -288,7 +285,7 @@ func DirSize(path string) (int64, error) {
 	return totalSize, nil
 }
 
-func getLastModified(p string) (time.Time, error) {
+func GetLastModified(p string) (time.Time, error) {
 	/*
 		Accepts a directory path `p` as input.
 		This directory path is assumed as the parent directory of the node_modules directory.

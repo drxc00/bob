@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/drxc00/bob/internal/scan"
-	"github.com/drxc00/bob/types"
-	"github.com/drxc00/bob/utils"
+	"github.com/drxc00/sweepy/internal/scan"
+	"github.com/drxc00/sweepy/types"
+	"github.com/drxc00/sweepy/utils"
 )
 
 // --- Styles ---

@@ -1,4 +1,4 @@
-module github.com/drxc00/bob
+module github.com/drxc00/sweepy
 
 go 1.24.2
 
