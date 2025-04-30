@@ -2,6 +2,9 @@ package utils
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -21,4 +24,25 @@ func ColorCodedStaleness(staleness int64) string {
 	}
 
 	return style.Render(fmt.Sprintf("%d days", staleness))
+}
+
+func FormatPath(p string, r string) string {
+	relPath, err := filepath.Rel(r, p)
+	if err != nil {
+		return p
+	}
+
+	// Split into parts
+	parts := strings.Split(relPath, string(os.PathSeparator))
+	if len(parts) < 2 {
+		return relPath
+	}
+
+	// Get project name (parent of node_modules)
+	projectName := parts[len(parts)-2]
+	// pathPart := filepath.Dir(relPath)
+
+	// mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
+	return projectName
 }

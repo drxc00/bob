@@ -20,7 +20,7 @@ var (
 	colorPrimary   = lipgloss.Color("205") // Purple
 	colorSecondary = lipgloss.Color("99")  // Pink
 	colorBorder    = lipgloss.Color("240") // Gray
-	colorSelected  = lipgloss.Color("57")  // Dark blue
+	colorSelected  = lipgloss.Color("25")  // Green
 	colorError     = lipgloss.Color("9")   // Red
 	colorHighlight = lipgloss.Color("229") // Light Yellow
 
@@ -173,16 +173,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		columns := []table.Column{
+			{Title: "PROJECT", Width: 20},
 			{Title: "PATH", Width: 50},
 			{Title: "SIZE", Width: 15},
+			{Title: "LAST MODIFIED", Width: 20},
 			{Title: "STALENESS", Width: 15},
 		}
 
 		var rows []table.Row
 		for _, module := range m.modules {
 			rows = append(rows, table.Row{
+				utils.FormatPath(module.Path, m.ctx.Path),
 				module.Path,
 				utils.FormatSize(module.Size),
+				module.LastModified.Format("2006-01-02 15:04:05"),
 				utils.ColorCodedStaleness(module.Staleness),
 			})
 		}
@@ -191,7 +195,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			table.WithColumns(columns),
 			table.WithRows(rows),
 			table.WithFocused(true),
-			table.WithHeight(m.height-10),
+			table.WithHeight(m.height-8),
 		)
 
 		s := table.DefaultStyles()
@@ -227,10 +231,6 @@ func (m model) View() string {
 
 	if m.isLoading {
 		var b strings.Builder
-
-		// Path + Settings
-		// b.WriteString(fmt.Sprintf(" Path: %s | Staleness: %d days | Cache: %t\n\n",
-		// 	m.ctx.Path, m.ctx.Staleness, !m.ctx.NoCache))
 
 		// Scanning status
 		status := fmt.Sprintf("%s Scanning for node_modules...", m.spinner.View())
@@ -284,7 +284,7 @@ func (m model) View() string {
 
 	// Footer
 	b.WriteString("\n")
-	b.WriteString(footerStyle.Render("Press q to quit • Arrow keys to navigate"))
+	b.WriteString(footerStyle.Render("Press q or Ctl+C to quit • Arrow keys to navigate • Press d to delete"))
 	b.WriteString("\n")
 
 	return b.String()
