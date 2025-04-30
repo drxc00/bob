@@ -26,6 +26,7 @@ type ScannedNodeModule struct {
 type ScanInfo struct {
 	TotalSize    int64
 	AvgStaleness float64
+	ScanDuration time.Duration
 }
 
 func sortScannedNodeModules(modules *[]ScannedNodeModule) {
@@ -41,6 +42,9 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
 	var totalSize int64 = 0
 	var totalStaleness float64 = 0
+
+	// Scan Time
+	startTime := time.Now()
 
 	// Cache handler
 	cache := internal.NewCache[ScannedNodeModule]()
@@ -252,7 +256,10 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 		avgStaleness = totalStaleness / float64(len(scannedNodeModules))
 	}
 
-	return scannedNodeModules, ScanInfo{TotalSize: totalSize, AvgStaleness: avgStaleness}, nil
+	// Calculate the scan duration
+	scanDuration := time.Since(startTime)
+
+	return scannedNodeModules, ScanInfo{TotalSize: totalSize, AvgStaleness: avgStaleness, ScanDuration: scanDuration}, nil
 }
 
 func DirSize(path string) (int64, error) {
