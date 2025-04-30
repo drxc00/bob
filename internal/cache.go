@@ -15,15 +15,13 @@ import (
 )
 
 type Cache[T any] struct {
-	Type     string       `json:"type"`     // Type of data, e.g., "node_modules", "git"
 	Validity int64        `json:"validity"` // Cache expiration timestamp (Unix time)
 	Data     map[string]T `json:"data"`     // Map to hold the cached data, key is the identifier (e.g., path)
 	mu       sync.RWMutex // Mutex to protect concurrent access
 }
 
-func NewCache[T any](t string) *Cache[T] {
+func NewCache[T any]() *Cache[T] {
 	return &Cache[T]{
-		Type:     t,
 		Validity: time.Now().Add(time.Hour * 24).Unix(), // Expire after 24 hours by default
 		Data:     make(map[string]T),
 		mu:       sync.RWMutex{},
@@ -84,7 +82,7 @@ func (c *Cache[T]) Save() error {
 	if err != nil {
 		return err
 	}
-	filename := getFileName(c.Type)
+	filename := "sweepy.cache.json"
 
 	// Check if the file exists
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
@@ -103,7 +101,7 @@ func (c *Cache[T]) Load() (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	filename := getFileName(c.Type)
+	filename := "sweepy.cache.json"
 
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return false, err // File doesn't exist, nothing to load
@@ -122,8 +120,4 @@ func (c *Cache[T]) Load() (bool, error) {
 	}
 
 	return true, nil
-}
-
-func getFileName(t string) string {
-	return "/.bob-" + t + "-cache.json"
 }

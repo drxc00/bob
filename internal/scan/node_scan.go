@@ -44,7 +44,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 	var totalStaleness float64 = 0
 
 	// Cache handler
-	cache := internal.NewCache[ScannedNodeModule]("node_modules")
+	cache := internal.NewCache[ScannedNodeModule]()
 	cacheLoaded := false
 
 	// Time for calculating staleness
