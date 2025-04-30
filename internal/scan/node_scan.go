@@ -77,14 +77,14 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 			totalStaleness += float64(module.Staleness)
 			mutex.Unlock()
 
-			daysSinceModified := int64(currentTime.Sub(module.LastModified).Hours() / 24)
-
-			// If the module meets our staleness criteria, add it directly without scanning
-			if ctx.Staleness == 0 || daysSinceModified >= ctx.Staleness {
-				mutex.Lock()
-				scannedNodeModules = append(scannedNodeModules, module)
-				mutex.Unlock()
+			if ctx.Staleness != 0 && module.Staleness < ctx.Staleness {
+				continue
 			}
+
+			// Add the module to the slice of scannedNodeModules
+			mutex.Lock()
+			scannedNodeModules = append(scannedNodeModules, module)
+			mutex.Unlock()
 		}
 
 		// If we have entries from cache and don't need a full rescan, return early
