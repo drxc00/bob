@@ -16,30 +16,17 @@ import (
 	"github.com/drxc00/sweepy/utils"
 )
 
-type ScannedNodeModule struct {
-	Path         string
-	Staleness    int64 // In days
-	Size         int64
-	LastModified time.Time
-}
-
-type ScanInfo struct {
-	TotalSize    int64
-	AvgStaleness float64
-	ScanDuration time.Duration
-}
-
-func sortScannedNodeModules(modules *[]ScannedNodeModule) {
+func sortScannedNodeModules(modules *[]types.ScannedNodeModule) {
 	sort.Slice(*modules, func(i, j int) bool {
 		return (*modules)[i].Staleness > (*modules)[j].Staleness
 	})
 }
 
-func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, ScanInfo, error) {
+func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModule, types.ScanInfo, error) {
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
 	var mutex sync.Mutex  // Mutex for concurrent access to scannedNodeModules
 	var wg sync.WaitGroup // Wait group for parallel scanning
-	var scannedNodeModules []ScannedNodeModule = []ScannedNodeModule{}
+	var scannedNodeModules []types.ScannedNodeModule = []types.ScannedNodeModule{}
 	var totalSize int64 = 0
 	var totalStaleness float64 = 0
 
@@ -47,7 +34,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 	startTime := time.Now()
 
 	// Cache handler
-	cache := internal.NewCache[ScannedNodeModule]()
+	cache := internal.GetGlobalCache()
 	cacheLoaded := false
 
 	// Time for calculating staleness
@@ -55,12 +42,17 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 
 	if !ctx.NoCache {
 		ok, loadErr := cache.Load()
-		if ok && loadErr == nil {
+		if ok {
 			cacheLoaded = true
+		} else {
+			utils.Log("Error when scanning: %v\n", loadErr)
 		}
 	}
 
 	if cacheLoaded && !cache.IsExpired() && !ctx.NoCache && !ctx.ResetCache {
+		fmt.Println("Is cache loaded: ", cacheLoaded)
+		fmt.Println("Is cache expired: ", cache.IsExpired())
+		fmt.Println("Is cache loaded and not expired: ", cacheLoaded && !cache.IsExpired())
 		// Filter cached entries based on staleness criteria
 		for p, module := range cache.Data {
 			// Check if the path contains the current path
@@ -87,7 +79,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 		if len(scannedNodeModules) > 0 && !ctx.NoCache {
 			sortScannedNodeModules(&scannedNodeModules)
 			scanDuration := time.Since(startTime)
-			return scannedNodeModules, ScanInfo{TotalSize: totalSize, AvgStaleness: totalStaleness, ScanDuration: scanDuration}, nil
+			return scannedNodeModules, types.ScanInfo{TotalSize: totalSize, AvgStaleness: totalStaleness, ScanDuration: scanDuration}, nil
 		}
 	}
 
@@ -196,7 +188,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 				totalSize += dirSize
 				totalStaleness += float64(daysSinceModified)
 				// Create and populate a ScannedNodeModule struct
-				scannedNodeModule := ScannedNodeModule{
+				scannedNodeModule := types.ScannedNodeModule{
 					Path:         nodeModulePath,
 					Size:         dirSize,
 					LastModified: parentDirInfo.ModTime(),
@@ -223,7 +215,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 
 	if err != nil {
 		utils.Log("Error when scanning: %v\n", err)
-		return []ScannedNodeModule{}, ScanInfo{}, err
+		return []types.ScannedNodeModule{}, types.ScanInfo{}, err
 	}
 
 	// Sort the scannedNodeModules by staleness
@@ -252,7 +244,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]ScannedNodeModule, Sca
 	// Calculate the scan duration
 	scanDuration := time.Since(startTime)
 
-	return scannedNodeModules, ScanInfo{TotalSize: totalSize, AvgStaleness: avgStaleness, ScanDuration: scanDuration}, nil
+	return scannedNodeModules, types.ScanInfo{TotalSize: totalSize, AvgStaleness: avgStaleness, ScanDuration: scanDuration}, nil
 }
 
 func DirSize(path string) (int64, error) {

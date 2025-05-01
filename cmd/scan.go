@@ -23,47 +23,40 @@ var (
 	colorSelected  = lipgloss.Color("25")  // Green
 	colorError     = lipgloss.Color("9")   // Red
 	colorHighlight = lipgloss.Color("229") // Light Yellow
+	colorHeader    = lipgloss.Color("231") // White
 
 	baseStyle  = lipgloss.NewStyle().Foreground(colorPrimary)
 	titleStyle = lipgloss.NewStyle().
 			Foreground(colorSecondary).
 			Bold(true).
 			Align(lipgloss.Center).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorBorder).
 			Padding(0, 2)
 
 	statsStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(colorBorder).
-			Padding(1, 2).
-			Align(lipgloss.Center)
+			Padding(0, 2).
+			Align(lipgloss.Left)
 
 	errorStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorError).
-			Padding(1, 2).
-			Align(lipgloss.Center)
+			Foreground(colorError).
+			Padding(1, 2)
 
 	footerStyle = lipgloss.NewStyle().
 			Foreground(colorBorder).
 			Align(lipgloss.Center)
 
 	loadingBoxStyle = lipgloss.NewStyle().
-			BorderForeground(colorBorder).
 			Height(12).
 			Width(80).
 			MaxHeight(12).
 			MaxWidth(80).
 			Align(lipgloss.Left)
 
-	// Add a style for the progress text
-	progressTextStyle = lipgloss.NewStyle().
-				Width(76) // Slightly less than box width to account for padding
+	// Add styles for stats text
+	statsLabelStyle = lipgloss.NewStyle().
+			Foreground(colorSecondary).
+			Bold(true)
 
-	// Add a style for truncating long paths
-	pathStyle = lipgloss.NewStyle().
-			Width(76).
+	statsValueStyle = lipgloss.NewStyle().
 			Foreground(colorPrimary)
 )
 
@@ -74,7 +67,7 @@ type model struct {
 	table        table.Model
 	isLoading    bool
 	scanComplete bool
-	modules      []scan.ScannedNodeModule
+	modules      []types.ScannedNodeModule
 
 	// Config
 	ctx types.ScanContext
@@ -106,8 +99,8 @@ func initialModel(ctx types.ScanContext) model {
 }
 
 type scanResultMsg struct {
-	modules []scan.ScannedNodeModule
-	stats   scan.ScanInfo
+	modules []types.ScannedNodeModule
+	stats   types.ScanInfo
 	err     error
 }
 
@@ -157,8 +150,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		if m.scanComplete {
+			// Allow the table to use most of the available width
 			m.table.SetWidth(m.width - 4)
-			m.table.SetHeight(m.height - 10)
+			m.table.SetHeight(m.height - 12) // Give more space for stats and footer
 		}
 	case scanResultMsg:
 		m.isLoading = false
@@ -174,12 +168,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+		// Calculate proportional column widths based on content
+		availableWidth := m.width - 8 // Allow for some padding and borders
+
+		// Define column ratios (proportions of total width)
+		projectRatio := 0.15
+		pathRatio := 0.40
+		sizeRatio := 0.10
+		modifiedRatio := 0.15
+		stalenessRatio := 0.15
+
+		// Apply ratios to calculate actual column widths
+		projectWidth := int(float64(availableWidth) * projectRatio)
+		pathWidth := int(float64(availableWidth) * pathRatio)
+		sizeWidth := int(float64(availableWidth) * sizeRatio)
+		modifiedWidth := int(float64(availableWidth) * modifiedRatio)
+		stalenessWidth := int(float64(availableWidth) * stalenessRatio)
+
 		columns := []table.Column{
-			{Title: "PROJECT", Width: 20},
-			{Title: "PATH", Width: 50},
-			{Title: "SIZE", Width: 15},
-			{Title: "LAST MODIFIED", Width: 20},
-			{Title: "STALENESS", Width: 15},
+			{Title: "PROJECT", Width: projectWidth},
+			{Title: "PATH", Width: pathWidth},
+			{Title: "SIZE", Width: sizeWidth},
+			{Title: "LAST MODIFIED", Width: modifiedWidth},
+			{Title: "STALENESS", Width: stalenessWidth},
 		}
 
 		var rows []table.Row
@@ -197,13 +208,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			table.WithColumns(columns),
 			table.WithRows(rows),
 			table.WithFocused(true),
-			table.WithHeight(m.height-8),
+			table.WithHeight(m.height-20),
 		)
 
 		s := table.DefaultStyles()
-		s.Header = s.Header.BorderStyle(lipgloss.NormalBorder()).BorderForeground(colorBorder).BorderBottom(true).Bold(true)
-		s.Selected = s.Selected.Foreground(colorHighlight).Background(colorSelected).Bold(true)
+		s.Header = s.Header.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(colorSecondary).
+			BorderBottom(true).
+			Bold(true).
+			Foreground(colorHeader).
+			Background(colorBorder).
+			Padding(0, 1)
+
+		s.Selected = s.Selected.
+			Bold(true).
+			Background(colorSecondary).
+			Foreground(colorPrimary)
+
 		t.SetStyles(s)
+
+		// Adjust table dimensions to account for borders and padding
+		t.SetHeight(m.height - 14)
+		t.SetWidth(m.width - 6)
 
 		m.table = t
 		return m, nil
@@ -226,7 +253,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	if m.err != nil {
 		return errorStyle.Render(fmt.Sprintf(
-			"\nAn error occurred:\n\n%s\n\nPress q to quit.",
+			"\nError: %s\n\nPress q to quit.",
 			m.err.Error(),
 		))
 	}
@@ -251,7 +278,7 @@ func (m model) View() string {
 				if len(path) > 76 {
 					path = path[:73] + "..."
 				}
-				formattedPaths = append(formattedPaths, pathStyle.Render(path))
+				formattedPaths = append(formattedPaths, path)
 			}
 			paths := strings.Join(formattedPaths, "\n")
 			b.WriteString(loadingBoxStyle.Render(paths))
@@ -262,32 +289,44 @@ func (m model) View() string {
 
 	var b strings.Builder
 
-	// Title
+	// Title with improved styling
 	b.WriteString("\n")
-	b.WriteString(titleStyle.Render(" SCAN RESULTS "))
+	b.WriteString(titleStyle.Render("📦 NODE_MODULES SCAN RESULTS 📦"))
 	b.WriteString("\n\n")
 
-	// Path + Settings
-	b.WriteString(fmt.Sprintf(" Path: %s | Staleness Flag: %d days | Cache: %t\n\n",
-		m.ctx.Path, m.ctx.Staleness, !m.ctx.NoCache))
-
-	// Stats with nice border
+	// Stats with improved formatting
 	stats := fmt.Sprintf(
-		"Found %d node_modules directories\nTotal Size: %.2f MB | Avg Staleness: %.2f days\nScan Duration: %s\n",
-		len(m.modules),
-		float64(m.totalSize)/1024/1024,
-		m.avgStaleness,
-		m.scanDuration,
+		"%s %s\n%s %s\n%s %s\n%s %s\n",
+		statsLabelStyle.Render("Found:"),
+		statsValueStyle.Render(fmt.Sprintf("%d node_modules directories", len(m.modules))),
+		statsLabelStyle.Render("Total Size:"),
+		statsValueStyle.Render(fmt.Sprintf("%.2f MB", float64(m.totalSize)/1024/1024)),
+		statsLabelStyle.Render("Avg Staleness:"),
+		statsValueStyle.Render(fmt.Sprintf("%.2f days", m.avgStaleness)),
+		statsLabelStyle.Render("Scan Duration:"),
+		statsValueStyle.Render(m.scanDuration),
 	)
 	b.WriteString(statsStyle.Render(stats))
-	b.WriteString("\n\n")
-
-	// Table
-	b.WriteString(m.table.View())
-
-	// Footer
 	b.WriteString("\n")
-	b.WriteString(footerStyle.Render("Press q or Ctl+C to quit • Arrow keys to navigate • Press d to delete"))
+
+	// Table with border
+	tableBorder := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(colorBorder).
+		Padding(1, 1)
+
+	b.WriteString(tableBorder.Render(m.table.View()))
+
+	// Footer with improved styling
+	b.WriteString("\n")
+	footerText := "q/Ctrl+C: quit • ↑/↓: navigate • d: delete"
+	enhancedFooter := lipgloss.NewStyle().
+		Foreground(colorSecondary).
+		Align(lipgloss.Center).
+		Width(m.width - 4).
+		Render(footerText)
+
+	b.WriteString(enhancedFooter)
 	b.WriteString("\n")
 
 	return b.String()

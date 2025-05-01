@@ -2,17 +2,19 @@ package internal
 
 import (
 	"sync"
+
+	"github.com/drxc00/sweepy/types"
 )
 
 var (
-	globalCache   *Cache[any]
+	globalCache   *Cache[types.ScannedNodeModule]
 	globalCacheMu sync.Once
 )
 
 // GetGlobalCache returns the singleton instance of the cache
-func GetGlobalCache() *Cache[any] {
+func GetGlobalCache() *Cache[types.ScannedNodeModule] {
 	globalCacheMu.Do(func() {
-		globalCache = NewCache[any]()
+		globalCache = NewCache[types.ScannedNodeModule]()
 	})
 	return globalCache
 }

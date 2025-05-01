@@ -69,7 +69,7 @@ func TestNodeClean(t *testing.T) {
 
 			// Save paths
 			for _, p := range projectPaths {
-				cache.Set(p, scan.ScannedNodeModule{
+				cache.Set(p, types.ScannedNodeModule{
 					Path:         p,
 					Size:         100,
 					LastModified: time.Now(),
