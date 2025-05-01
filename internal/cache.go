@@ -27,6 +27,13 @@ func NewCache[T any]() *Cache[T] {
 	}
 }
 
+func (c *Cache[T]) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.Data = make(map[string]T)
+}
+
 func (c *Cache[T]) SetValidity(validity int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

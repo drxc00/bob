@@ -8,45 +8,12 @@ import (
 
 	"github.com/drxc00/sweepy/internal/scan"
 	"github.com/drxc00/sweepy/types"
+	"github.com/drxc00/sweepy/utils"
 )
-
-func setupTestDirectory(t *testing.T) (string, func()) {
-	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "sweepy-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-
-	// Create test project structure
-	projectPaths := []string{
-		filepath.Join(tempDir, "project1", "node_modules"),
-		filepath.Join(tempDir, "project2", "node_modules"),
-		filepath.Join(tempDir, "project3", "subfolder", "node_modules"),
-	}
-
-	for _, path := range projectPaths {
-		if err := os.MkdirAll(path, 0755); err != nil {
-			t.Fatalf("Failed to create test directory: %v", err)
-		}
-
-		// Create some dummy files in node_modules
-		dummyFile := filepath.Join(path, "dummy.js")
-		if err := os.WriteFile(dummyFile, []byte("dummy content"), 0644); err != nil {
-			t.Fatalf("Failed to create dummy file: %v", err)
-		}
-	}
-
-	// Return cleanup function
-	cleanup := func() {
-		os.RemoveAll(tempDir)
-	}
-
-	return tempDir, cleanup
-}
 
 func TestNodeScan(t *testing.T) {
 	// Setup test directory
-	testDir, cleanup := setupTestDirectory(t)
+	testDir, _, cleanup := utils.SetupTestDirectory(t)
 	defer cleanup()
 
 	tests := []struct {
@@ -109,7 +76,7 @@ func TestNodeScan(t *testing.T) {
 
 func TestDirSize(t *testing.T) {
 	// Setup test directory
-	testDir, cleanup := setupTestDirectory(t)
+	testDir, _, cleanup := utils.SetupTestDirectory(t)
 	defer cleanup()
 
 	// Create a test file with known size
@@ -132,7 +99,7 @@ func TestDirSize(t *testing.T) {
 
 func TestGetLastModified(t *testing.T) {
 	// Setup test directory
-	testDir, cleanup := setupTestDirectory(t)
+	testDir, _, cleanup := utils.SetupTestDirectory(t)
 	defer cleanup()
 
 	// Create a new file with current timestamp
