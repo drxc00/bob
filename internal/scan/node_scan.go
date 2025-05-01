@@ -48,11 +48,11 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 			utils.Log("Error when scanning: %v\n", loadErr)
 		}
 	}
-
+	fmt.Println("Is cache loaded: ", cacheLoaded)
+	fmt.Println("Is cache expired: ", cache.IsExpired())
+	fmt.Println("Is cache loaded and not expired: ", cacheLoaded && !cache.IsExpired())
 	if cacheLoaded && !cache.IsExpired() && !ctx.NoCache && !ctx.ResetCache {
-		fmt.Println("Is cache loaded: ", cacheLoaded)
-		fmt.Println("Is cache expired: ", cache.IsExpired())
-		fmt.Println("Is cache loaded and not expired: ", cacheLoaded && !cache.IsExpired())
+
 		// Filter cached entries based on staleness criteria
 		for p, module := range cache.Data {
 			// Check if the path contains the current path
@@ -226,7 +226,10 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 		Or if we are using the --reset-cache flag.
 		This will override the cache and save the new data to the cache.
 	*/
-	if !ctx.NoCache || ctx.ResetCache {
+	if !ctx.NoCache || ctx.ResetCache || cache.IsExpired() {
+		if cache.IsExpired() {
+			cache.SetValidity(time.Now().Add(time.Hour * 24).Unix())
+		}
 		saveErr := cache.Save()
 		if saveErr != nil {
 			utils.Log("Error when scanning: %v\n", saveErr)
