@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/drxc00/sweepy/cmd/tui"
 	"github.com/drxc00/sweepy/types"
 	"github.com/spf13/cobra"
 )
@@ -71,7 +72,7 @@ var rootCmd = &cobra.Command{
 			verboseFlag,
 		)
 
-		scanNode(ctx)
+		tui.ScanNode(ctx)
 
 	},
 }

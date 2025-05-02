@@ -1,8 +1,7 @@
-package cmd
+package tui
 
 import (
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
@@ -10,56 +9,8 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/drxc00/sweepy/internal/clean"
-	"github.com/drxc00/sweepy/internal/scan"
 	"github.com/drxc00/sweepy/types"
 	"github.com/drxc00/sweepy/utils"
-)
-
-// --- Styles ---
-
-var (
-	colorPrimary   = lipgloss.Color("205") // Purple
-	colorSecondary = lipgloss.Color("99")  // Pink
-	colorBorder    = lipgloss.Color("240") // Gray
-	colorSelected  = lipgloss.Color("25")  // Green
-	colorError     = lipgloss.Color("9")   // Red
-	colorHighlight = lipgloss.Color("229") // Light Yellow
-	colorHeader    = lipgloss.Color("231") // White
-
-	baseStyle  = lipgloss.NewStyle().Foreground(colorPrimary)
-	titleStyle = lipgloss.NewStyle().
-			Foreground(colorSecondary).
-			Bold(true).
-			Align(lipgloss.Center).
-			Padding(0, 2)
-
-	statsStyle = lipgloss.NewStyle().
-			Padding(0, 2).
-			Align(lipgloss.Left)
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(colorError).
-			Padding(1, 2)
-
-	footerStyle = lipgloss.NewStyle().
-			Foreground(colorBorder).
-			Align(lipgloss.Center)
-
-	loadingBoxStyle = lipgloss.NewStyle().
-			Height(12).
-			Width(80).
-			MaxHeight(12).
-			MaxWidth(80).
-			Align(lipgloss.Left)
-
-	// Add styles for stats text
-	statsLabelStyle = lipgloss.NewStyle().
-			Foreground(colorSecondary).
-			Bold(true)
-
-	statsValueStyle = lipgloss.NewStyle().
-			Foreground(colorPrimary)
 )
 
 // --- Model ---
@@ -124,31 +75,12 @@ type deleteErrMsg struct {
 	path string
 }
 
-func startScan(ctx types.ScanContext, progressChan chan string) tea.Cmd {
-	return tea.Batch(
-		func() tea.Msg {
-			modules, stats, err := scan.NodeScan(ctx, progressChan)
-			return scanResultMsg{modules: modules, stats: stats, err: err}
-		},
-		listenForProgress(progressChan),
-	)
-}
-
-func listenForProgress(progressChan chan string) tea.Cmd {
-	return func() tea.Msg {
-		if p, ok := <-progressChan; ok {
-			return scanProgressMsg{path: p}
-		}
-		return nil
-	}
-}
-
 // --- BubbleTea Handlers ---
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		startScan(m.ctx, m.progressChan),
+		StartScan(m.ctx, m.progressChan),
 	)
 }
 
@@ -183,12 +115,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 						// Perform the deletion as a command to avoid blocking the UI
 						cmd := func() tea.Msg {
-							err := clean.CleanNodeModule(selectedModule.Path)
-							if err != nil {
-								utils.Log("Error deleting node_module: %v\n", err)
-								return deleteErrMsg{err: err, path: selectedPath}
-							}
-							return deleteSuccessMsg{path: selectedPath, index: selectedIndex, size: selectedModule.Size}
+							return DeleteNode(selectedModule, selectedIndex)
 						}
 						return m, cmd
 					}
@@ -288,7 +215,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case scanProgressMsg:
 		m.scanningPaths = append(m.scanningPaths, msg.path)
-		return m, listenForProgress(m.progressChan)
+		return m, ListenForProgress(m.progressChan)
 	case deleteSuccessMsg:
 		// Update the UI to show "DELETED" and remove the module from the model
 		if msg.index >= 0 && msg.index < len(m.table.Rows()) {
@@ -411,17 +338,4 @@ func (m model) View() string {
 	b.WriteString("\n")
 
 	return b.String()
-}
-
-// Function that starts the scan
-func scanNode(ctx types.ScanContext) {
-	p := tea.NewProgram(
-		initialModel(ctx),
-		tea.WithAltScreen(),
-	)
-
-	if _, err := p.Run(); err != nil {
-		utils.Log("Error when scanning: %v\n", err)
-		os.Exit(1)
-	}
 }
