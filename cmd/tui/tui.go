@@ -299,7 +299,7 @@ func (m model) View() string {
 
 	// Title with improved styling
 	b.WriteString("\n")
-	b.WriteString(titleStyle.Render("📦 NODE_MODULES SCAN RESULTS 📦"))
+	b.WriteString(titleStyle.Render("📦 SWEEPY 📦"))
 	b.WriteString("\n\n")
 
 	// Stats with improved formatting

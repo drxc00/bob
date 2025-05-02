@@ -1,26 +1,19 @@
 package scan
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
-	"os"
+	"log"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/charlievieth/fastwalk"
 	"github.com/drxc00/sweepy/internal/cache"
 	"github.com/drxc00/sweepy/types"
 	"github.com/drxc00/sweepy/utils"
 )
-
-func sortScannedNodeModules(modules *[]types.ScannedNodeModule) {
-	sort.Slice(*modules, func(i, j int) bool {
-		return (*modules)[i].Staleness > (*modules)[j].Staleness
-	})
-}
 
 func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModule, types.ScanInfo, error) {
 	// We apply Mutual Exclusion to the goroutines to prevent race conditions
@@ -37,20 +30,15 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 	cache := cache.GetGlobalCache()
 	cacheLoaded := false
 
-	// Time for calculating staleness
-	currentTime := time.Now()
-
 	if !ctx.NoCache {
 		ok, loadErr := cache.Load()
 		if ok {
 			cacheLoaded = true
 		} else {
-			utils.Log("Error when scanning: %v\n", loadErr)
+			ch <- fmt.Sprintf("Error loading cache: %v", loadErr)
 		}
 	}
-	fmt.Println("Is cache loaded: ", cacheLoaded)
-	fmt.Println("Is cache expired: ", cache.IsExpired())
-	fmt.Println("Is cache loaded and not expired: ", cacheLoaded && !cache.IsExpired())
+
 	if cacheLoaded && !cache.IsExpired() && !ctx.NoCache && !ctx.ResetCache {
 
 		// Filter cached entries based on staleness criteria
@@ -77,59 +65,32 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 
 		// If we have entries from cache and don't need a full rescan, return early
 		if len(scannedNodeModules) > 0 && !ctx.NoCache {
-			sortScannedNodeModules(&scannedNodeModules)
 			scanDuration := time.Since(startTime)
 			return scannedNodeModules, types.ScanInfo{TotalSize: totalSize, AvgStaleness: totalStaleness, ScanDuration: scanDuration}, nil
 		}
 	}
 
-	// Set of paths we've already processed from cache
-	// processedPaths := make(map[string]bool)
-	// for _, module := range scannedNodeModules {
-	// 	processedPaths[module.Path] = true
-	// }
-
-	err := filepath.WalkDir(ctx.Path, func(p string, d fs.DirEntry, err error) error {
+	// Fastwalk is a faster alternative to filepath.Walk
+	// Wraps our walk function to ignore permission errors
+	walkFn := fastwalk.IgnorePermissionErrors(func(p string, d fs.DirEntry, err error) error {
 		// Check if the walk function encountered an error
 		if err != nil {
-			// Check if the error is a permission error
-			if errors.Is(err, fs.ErrPermission) {
-				// We don't want to stop the walk function if we encounter a permission error
-				// log.Print(err)
-				if ctx.Verbose {
-					ch <- fmt.Sprintf("Permission denied: %v", err)
-				}
-				return filepath.SkipDir
+			// For other errors, log but continue walking
+			if ctx.Verbose {
+				ch <- fmt.Sprintf("Error accessing path %s: %v", p, err)
 			}
-			return err
+			return fastwalk.SkipDir
 		}
 
-		// Check if the current path is in the cache
-		if _, ok := cache.Get(p); ok && !cache.IsExpired() && !ctx.NoCache && !ctx.ResetCache {
-			// If the path is in the cache, add it to the slice of scannedNodeModules
-			c, ok := cache.Get(p)
-			if !ok {
-				// If the path is in the cache but the data is not found, something went wrong
-				utils.Log("Error when scanning: %v\n", err)
-				// so we want to continue scanning without caching
-			} else {
-				if ctx.Verbose {
-					ch <- fmt.Sprintf("Found %s in cache", c.Path)
-				}
-				mutex.Lock()
-				scannedNodeModules = append(scannedNodeModules, c)
-				mutex.Unlock()
-				return filepath.SkipDir // Short circuit the walk function
+		if d == nil {
+			if ctx.Verbose {
+				ch <- fmt.Sprintf("Skipping nil directory entry at %s", p)
 			}
+			return nil
 		}
 
 		// If the path is a directory and it's named "node_modules"
 		if d.IsDir() && d.Name() == "node_modules" {
-
-			// Immediate return if the path has already been processed
-			// if processedPaths[p] {
-			// 	return filepath.SkipDir
-			// }
 
 			if ctx.Verbose {
 				ch <- fmt.Sprintf("Scanning %s", p)
@@ -140,35 +101,21 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 			go func(nodeModulePath string) {
 				defer wg.Done()
 
-				/*
-					Get the last modified and accessed times of the directory containing the node_modules directory
-					We do this so that we can know if the project has been updated since the last time we scanned it
-					If we based it on the node_modules folder alone, it will not be accurate.
-				*/
+				// Get the last modified and accessed times of the directory containing the node_modules directory
+				// We do this so that we can know if the project has been updated since the last time we scanned it
+				// If we based it on the node_modules folder alone, it will not be accurate.
 				parentDir := filepath.Dir(nodeModulePath)
-				parentDirInfo, err := os.Stat(parentDir)
-
-				if err != nil {
-					utils.Log("Error when scanning: %v\n", err)
-					if ctx.Verbose {
-						ch <- fmt.Sprintf("Error when scanning: %v\n", err)
-					}
-					return
-				}
-
-				// Calculate the staleness of the `node_modules` directory
-				// Calculate staleness in days
 				lastModified, lerr := GetLastModified(parentDir)
 
 				if lerr != nil {
-					utils.Log("Error when scanning: %v\n", lerr)
+					utils.Log("Error when determining last modified: %v\n", lerr)
 					if ctx.Verbose {
-						ch <- fmt.Sprintf("Error when scanning: %v\n", lerr)
+						ch <- fmt.Sprintf("Error when determining last modified: %v\n", lerr)
 					}
-					return
+
 				}
 
-				daysSinceModified := int64(currentTime.Sub(lastModified).Hours() / 24)
+				daysSinceModified := int64(startTime.Sub(lastModified).Hours() / 24)
 
 				if ctx.Staleness != 0 && daysSinceModified < ctx.Staleness {
 					// We skip the node_modules directory if the staleness is less than the specified staleness
@@ -176,9 +123,9 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 				}
 
 				// Get the size of the node_modules directory
-				dirSize, err := DirSize(nodeModulePath)
+				dirSize, err := DirSizeFastWalk(nodeModulePath)
 				if err != nil {
-					utils.Log("Error when scanning: %v\n", err)
+					ch <- fmt.Sprintf("Error when calculating dir size: %v\n", err)
 					return
 				}
 
@@ -191,7 +138,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 				scannedNodeModule := types.ScannedNodeModule{
 					Path:         nodeModulePath,
 					Size:         dirSize,
-					LastModified: parentDirInfo.ModTime(),
+					LastModified: lastModified,
 					Staleness:    daysSinceModified,
 				}
 				scannedNodeModules = append(scannedNodeModules, scannedNodeModule)
@@ -200,11 +147,13 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 			}(p)
 
 			// If a node_modules directory is found, stop walking the directory tree
-			return filepath.SkipDir
+			return fastwalk.SkipDir
 		}
 
 		return nil
 	})
+
+	err := fastwalk.Walk(&fastwalk.DefaultConfig, ctx.Path, walkFn)
 
 	// Wait for all goroutines to finish
 	// If this is not added, the program will simply exit without any output
@@ -213,26 +162,26 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 	// Close the channel
 	close(ch)
 
+	// Calculate the scan duration
+	scanDuration := time.Since(startTime)
+
 	if err != nil {
-		utils.Log("Error when scanning: %v\n", err)
+		utils.Log("Error after scanning: %v\n", err)
+		log.Print(err)
 		return []types.ScannedNodeModule{}, types.ScanInfo{}, err
 	}
 
-	// Sort the scannedNodeModules by staleness
-	sortScannedNodeModules(&scannedNodeModules)
-
-	/*
-		We only save the cache if we are not using the --no-cache flag
-		Or if we are using the --reset-cache flag.
-		This will override the cache and save the new data to the cache.
-	*/
+	// We only save the cache if we are not using the --no-cache flag
+	// Or if we are using the --reset-cache flag.
+	// This will override the cache and save the new data to the cache.
 	if !ctx.NoCache || ctx.ResetCache || cache.IsExpired() {
 		if cache.IsExpired() {
-			cache.SetValidity(time.Now().Add(time.Hour * 24).Unix())
+			cacheValidity := startTime.Add(time.Hour * 24).Unix()
+			cache.SetValidity(cacheValidity)
 		}
 		saveErr := cache.Save()
 		if saveErr != nil {
-			utils.Log("Error when scanning: %v\n", saveErr)
+			utils.Log("Error saving cache: %v\n", saveErr)
 		}
 	}
 
@@ -244,62 +193,5 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 		avgStaleness = totalStaleness / float64(len(scannedNodeModules))
 	}
 
-	// Calculate the scan duration
-	scanDuration := time.Since(startTime)
-
 	return scannedNodeModules, types.ScanInfo{TotalSize: totalSize, AvgStaleness: avgStaleness, ScanDuration: scanDuration}, nil
-}
-
-func DirSize(path string) (int64, error) {
-	var totalSize int64
-	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil {
-			// Skip problematic files or directories
-			return nil
-		}
-		if !d.IsDir() {
-			// Use Info() only if necessary (costs a syscall)
-			info, err := d.Info()
-			if err != nil {
-				// If we can't get file info, skip it
-				return nil
-			}
-			totalSize += info.Size()
-		}
-		return nil
-	})
-	if err != nil {
-		return 0, err
-	}
-	return totalSize, nil
-}
-
-func GetLastModified(p string) (time.Time, error) {
-	/*
-		Accepts a directory path `p` as input.
-		This directory path is assumed as the parent directory of the node_modules directory.
-	*/
-
-	var lastModified time.Time
-	err := filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !d.IsDir() {
-			// Check the modification time of the file
-			if inf, err := d.Info(); err == nil {
-				if inf.ModTime().After(lastModified) {
-					lastModified = inf.ModTime()
-				}
-			}
-		}
-		return nil // Continue walking
-	})
-
-	if err != nil {
-		panic(err)
-	}
-
-	return lastModified, nil
 }
