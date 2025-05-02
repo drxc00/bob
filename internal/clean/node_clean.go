@@ -23,9 +23,9 @@ func CleanNodeModule(p string) error {
 
 	// Remove node_modules from the cache
 	cache := internal.GetGlobalCache()
-	ok, err := cache.Load()
+	ok, c_err := cache.Load()
 
-	if err != nil {
+	if c_err != nil {
 		return err
 	}
 

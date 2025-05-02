@@ -3,12 +3,14 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/drxc00/sweepy/internal/clean"
 	"github.com/drxc00/sweepy/internal/scan"
 	"github.com/drxc00/sweepy/types"
 	"github.com/drxc00/sweepy/utils"
@@ -81,6 +83,9 @@ type model struct {
 	totalSize     int64
 	avgStaleness  float64
 	scanDuration  string
+
+	// deleted
+	deletedPaths []string
 }
 
 // --- Init Functions ---
@@ -105,6 +110,17 @@ type scanResultMsg struct {
 }
 
 type scanProgressMsg struct {
+	path string
+}
+
+type deleteSuccessMsg struct {
+	path  string
+	index int
+	size  int64
+}
+
+type deleteErrMsg struct {
+	err  error
 	path string
 }
 
@@ -146,6 +162,38 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.table.MoveUp(1)
 		case "down":
 			m.table.MoveDown(1)
+		case " ":
+			if m.scanComplete && len(m.table.Rows()) > 0 {
+				selectedIndex := m.table.Cursor()
+				if selectedIndex >= 0 && selectedIndex < len(m.table.Rows()) {
+					currentRows := m.table.Rows()
+					selectedPath := currentRows[selectedIndex][1] // Assuming the second column contains the paths
+					if len(currentRows[selectedIndex]) > 0 && selectedPath != "" && !slices.Contains(m.deletedPaths, selectedPath) {
+						selectedModule := m.modules[selectedIndex]
+
+						// Immediately update the UI to show "Deleting..."
+						updatedRow := make(table.Row, len(currentRows[selectedIndex]))
+						copy(updatedRow, currentRows[selectedIndex])
+						updatedRow[0] = "[DELETING...] " + updatedRow[0] // Modify the first column
+
+						newRows := make([]table.Row, len(currentRows))
+						copy(newRows, currentRows)
+						newRows[selectedIndex] = updatedRow
+						m.table.SetRows(newRows)
+
+						// Perform the deletion as a command to avoid blocking the UI
+						cmd := func() tea.Msg {
+							err := clean.CleanNodeModule(selectedModule.Path)
+							if err != nil {
+								utils.Log("Error deleting node_module: %v\n", err)
+								return deleteErrMsg{err: err, path: selectedPath}
+							}
+							return deleteSuccessMsg{path: selectedPath, index: selectedIndex, size: selectedModule.Size}
+						}
+						return m, cmd
+					}
+				}
+			}
 		}
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -223,7 +271,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		s.Selected = s.Selected.
 			Bold(true).
-			Background(colorSecondary).
+			Background(colorSelected).
 			Foreground(colorPrimary)
 
 		t.SetStyles(s)
@@ -234,15 +282,48 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.table = t
 		return m, nil
-
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
-
 	case scanProgressMsg:
 		m.scanningPaths = append(m.scanningPaths, msg.path)
 		return m, listenForProgress(m.progressChan)
+	case deleteSuccessMsg:
+		// Update the UI to show "DELETED" and remove the module from the model
+		if msg.index >= 0 && msg.index < len(m.table.Rows()) {
+			currentRows := m.table.Rows()
+			if len(currentRows[msg.index]) > 0 {
+				updatedRow := make(table.Row, len(currentRows[msg.index]))
+				copy(updatedRow, currentRows[msg.index])
+				updatedRow[0] = "[DELETED] " + updatedRow[0]
+				newRows := make([]table.Row, len(currentRows))
+				copy(newRows, currentRows)
+				newRows[msg.index] = updatedRow
+				m.table.SetRows(newRows)
+
+				// Update the model
+				if msg.index < len(m.modules) {
+					m.totalSize -= m.modules[msg.index].Size
+					m.modules = append(m.modules[:msg.index], m.modules[msg.index+1:]...)
+
+					// Remove the deleted row from the table (optional, but might be desired)
+					currentTableRows := m.table.Rows()
+					if msg.index < len(currentTableRows) {
+						m.table.SetRows(append(currentTableRows[:msg.index], currentTableRows[msg.index+1:]...))
+
+						// Adjust cursor if necessary
+						if m.table.Cursor() >= len(m.table.Rows()) && len(m.table.Rows()) > 0 {
+							m.table.SetCursor(len(m.table.Rows()) - 1)
+						}
+					}
+				}
+
+				m.deletedPaths = append(m.deletedPaths, msg.path)
+
+			}
+		}
+		return m, nil
 
 	}
 
@@ -319,7 +400,7 @@ func (m model) View() string {
 
 	// Footer with improved styling
 	b.WriteString("\n")
-	footerText := "q/Ctrl+C: quit • ↑/↓: navigate • d: delete"
+	footerText := "q/Ctrl+C: quit • ↑/↓: navigate • space: delete"
 	enhancedFooter := lipgloss.NewStyle().
 		Foreground(colorSecondary).
 		Align(lipgloss.Center).
