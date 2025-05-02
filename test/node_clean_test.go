@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/drxc00/sweepy/internal"
+	"github.com/drxc00/sweepy/internal/cache"
 	"github.com/drxc00/sweepy/types"
 	"github.com/drxc00/sweepy/utils"
 
@@ -63,7 +63,7 @@ func TestNodeClean(t *testing.T) {
 			defer cleanup()
 
 			// Create a new cache
-			cache := internal.GetGlobalCache()
+			cache := cache.GetGlobalCache()
 			// Clear cache
 			cache.Clear()
 
@@ -104,7 +104,12 @@ func TestNodeClean(t *testing.T) {
 			// Test ch
 			ch := make(chan string, 100)
 			// Verify remaining modules
-			modules, _, err := scan.NodeScan(t_ctx, ch)
+			modules, _, err := scan.NodeScan(t_ctx, ch) // Automatically closes the channel
+
+			if err != nil {
+				t.Fatalf("Failed to scan modules: %v", err)
+			}
+
 			// Load cache
 			_, err = cache.Load()
 			if err != nil {

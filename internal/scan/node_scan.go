@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drxc00/sweepy/internal"
+	"github.com/drxc00/sweepy/internal/cache"
 	"github.com/drxc00/sweepy/types"
 	"github.com/drxc00/sweepy/utils"
 )
@@ -34,7 +34,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 	startTime := time.Now()
 
 	// Cache handler
-	cache := internal.GetGlobalCache()
+	cache := cache.GetGlobalCache()
 	cacheLoaded := false
 
 	// Time for calculating staleness

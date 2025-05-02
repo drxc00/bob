@@ -4,13 +4,13 @@ import (
 	"errors"
 	"os"
 
-	"github.com/drxc00/sweepy/internal"
+	"github.com/drxc00/sweepy/internal/cache"
 )
 
 func CleanNodeModule(p string) error {
 	// Check if node_modules exists
 	if _, err := os.Stat(p); os.IsNotExist(err) {
-		return errors.New("node_modules does not exist or has been deleted.")
+		return errors.New("node_modules does not exist or has been deleted")
 	}
 
 	// Remove node_modules
@@ -22,7 +22,7 @@ func CleanNodeModule(p string) error {
 	}
 
 	// Remove node_modules from the cache
-	cache := internal.GetGlobalCache()
+	cache := cache.GetGlobalCache()
 	ok, c_err := cache.Load()
 
 	if c_err != nil {

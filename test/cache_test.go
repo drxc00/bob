@@ -3,12 +3,12 @@ package test
 import (
 	"testing"
 
-	"github.com/drxc00/sweepy/internal"
+	"github.com/drxc00/sweepy/internal/cache"
 )
 
 func TestCacheGet(t *testing.T) {
 	// In memory cache (Does not write to disk)
-	cache := internal.NewCache[string]()
+	cache := cache.NewCache[string]()
 	cache.Set("test", "test")
 	defer cache.Delete("test")
 

@@ -4,7 +4,7 @@
 	The cache is stored in the user's home directory.
 */
 
-package internal
+package cache
 
 import (
 	"encoding/json"
