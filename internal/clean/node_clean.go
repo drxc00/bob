@@ -9,24 +9,31 @@ import (
 
 func CleanNodeModule(p string) error {
 	// Check if node_modules exists
-	if _, err := os.Stat(p); os.IsNotExist(err) {
+	info, err := os.Stat(p)
+	if os.IsNotExist(err) {
 		return errors.New("node_modules does not exist or has been deleted")
 	}
-
-	// Remove node_modules
-	// also remove it from the cache
-	// Comment for testing
-	err := os.RemoveAll(p)
 	if err != nil {
 		return err
 	}
 
-	// Remove node_modules from the cache
+	// Additional check to ensure it's a directory
+	if !info.IsDir() {
+		return errors.New("path is not a directory")
+	}
+
+	// Remove node_modules
+	// also remove it from the cache
+	if err := os.RemoveAll(p); err != nil {
+		return err
+	}
+
+	// Only load cache after successful removal
 	cache := cache.GetGlobalCache()
 	ok, c_err := cache.Load()
 
 	if c_err != nil {
-		return err
+		return c_err // Return the cache error, not the previous err
 	}
 
 	if !ok {
@@ -34,7 +41,5 @@ func CleanNodeModule(p string) error {
 	}
 
 	cache.Delete(p)
-	cache.Save()
-
-	return nil
+	return cache.Save() // Return any error from Save directly
 }

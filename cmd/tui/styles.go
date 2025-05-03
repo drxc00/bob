@@ -10,7 +10,6 @@ var (
 	colorError     = lipgloss.Color("9")   // Red
 	colorHeader    = lipgloss.Color("231") // White
 
-	baseStyle  = lipgloss.NewStyle().Foreground(colorPrimary)
 	titleStyle = lipgloss.NewStyle().
 			Foreground(colorSecondary).
 			Bold(true).
@@ -69,4 +68,11 @@ var (
 				Foreground(lipgloss.Color("240")).
 				Align(lipgloss.Center).
 				MarginTop(1)
+)
+
+var (
+	// ... existing colors ...
+	colorDeleting = lipgloss.Color("#FFA500") // Orange
+	colorDeleted  = lipgloss.Color("#00FF00") // Green
+	colorFailed   = lipgloss.Color("#FF0000") // Red
 )

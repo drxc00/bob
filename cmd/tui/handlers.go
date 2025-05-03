@@ -27,7 +27,7 @@ func DeleteNode(n types.ScannedNodeModule, idx int) tea.Msg {
 	err := clean.CleanNodeModule(n.Path)
 	if err != nil {
 		utils.Log("Error deleting node_module: %v\n", err)
-		return deleteErrMsg{err: err, path: n.Path}
+		return deleteErrMsg{err: err, index: idx, path: n.Path}
 	}
 	return deleteSuccessMsg{path: n.Path, index: idx, size: n.Size}
 }
