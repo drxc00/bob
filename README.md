@@ -1,17 +1,35 @@
-# sweepy (WIP)
+# 📦 Sweepy
 
-sweepy is a lightweight dependency free CLI tool that scans your projects for bloat — like unused node_modules — and helps you clean them up with simple, powerful commands.
+> **Saving space using GO** - A lightweight CLI tool that scans your device for bloat and helps you clean it up.
 
-_I wanted to learn go so I made this. I'm not a go expert, so there's probably a lot of room for improvement._
+Sweepy helps developers reclaim valuable disk space by identifying and removing unused `node_modules` directories that accumulate over time. Built with Go for performance and minimal resource usage.
 
-## Scan
+![License](https://img.shields.io/github/license/drxc00/sweepy)
 
-Scan your development environment for clutter like node_modules folders.
-Takes a directory as an argument and display stats about the directory given the flags. If no arguments are provided, it defaults to the current directory.
+## 🚀 Features
 
-#### Usage
+- **Fast scanning**: Quickly identifies all `node_modules` directories in your system. Go is just better.
+- **Staleness detection**: Analyzes directory staleness such as last modification date.
+- **Space visualization**: Shows size statistics to help prioritize cleanup
+- **Caching**: Remembers previous scans for improved performance
+- **Interactive UI**: Clean TUI interface for easy navigation and cleanup
 
+## 🔧 Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/drxc00/sweepy.git
+
+# Navigate to the project directory
+cd sweepy
+
+# Build the project
+go build
 ```
+
+## 📝 Usage
+
+```bash
 sweepy [directory] [flags]
 
 Flags:
@@ -24,20 +42,32 @@ Flags:
 
 #### Examples
 
-```
-sweepy                                          # Scans the current directory, staleness defaults to 0
-sweepy "<directory>"                            # Scans the specified directory, staleness defaults to 0
-sweepy "<directory>" -s 1d                      # Scans the specified directory and sets the staleness to 1 day
-sweepy "<directory>" --staleness 1d             # Scans the specified directory and sets the staleness to 1 day
-sweepy "<directory>" --staleness 1d -no-cache   # Scans the specified directory and sets the staleness to 1 day and disables caching
-sweepy "<directory>" --reset-cache              # Resets the cache for the specified directory
+```bash
+# Scan current directory
+sweepy
+
+# Scan a specific directory
+sweepy "D:\Projects"
+
+# Find node_modules directories not modified in the last 30 days
+sweepy "D:\Projects" -s 30
+
+# Perform a fresh scan without using cached results
+sweepy "D:\Projects" --no-cache
+
+# Reset the cache and perform a new scan
+sweepy "D:\Projects" --reset-cache
+
+# Show detailed progress during scanning
+sweepy "D:\Projects" --verbose
 
 ```
 
-This retuns a table of the node_modules directories and their size and staleness.
 
-## TODO Features
+## 🛠️ Development
+This project was created as a learning exercise for Go. Contributions and suggestions for improvements are welcome!
 
+### Roadmap
 - Git integration (branches to clean, etc.)
-- Tests
-- Documentation
+- Comprehensive test suite
+- Support for other types of development artifacts (build directories, etc.)
