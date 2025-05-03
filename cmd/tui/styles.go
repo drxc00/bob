@@ -25,13 +25,6 @@ var (
 			Foreground(colorError).
 			Padding(1, 2)
 
-	loadingBoxStyle = lipgloss.NewStyle().
-			Height(12).
-			Width(80).
-			MaxHeight(12).
-			MaxWidth(80).
-			Align(lipgloss.Left)
-
 	// Add styles for stats text
 	statsLabelStyle = lipgloss.NewStyle().
 			Foreground(colorSecondary).
@@ -39,4 +32,41 @@ var (
 
 	statsValueStyle = lipgloss.NewStyle().
 			Foreground(colorPrimary)
+)
+
+// UI Styles for loading state
+var (
+	loadingTitleStyle = lipgloss.NewStyle().
+				Foreground(colorPrimary).
+				Bold(true).
+				MarginBottom(1).
+				Align(lipgloss.Center)
+
+	loadingBoxStyle = lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(colorSecondary).
+			Padding(1, 2).
+			Width(78)
+
+	loadingPathStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240")).
+				Italic(true)
+
+	scanningLabelStyle = lipgloss.NewStyle().
+				Foreground(colorPrimary).
+				Bold(true)
+
+	scanningCountStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("170")).
+				Bold(true)
+
+	scanningStatusStyle = lipgloss.NewStyle().
+				Align(lipgloss.Center).
+				MarginTop(1).
+				MarginBottom(1)
+
+	loadingFooterStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240")).
+				Align(lipgloss.Center).
+				MarginTop(1)
 )

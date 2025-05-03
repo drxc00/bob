@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
@@ -28,6 +29,7 @@ type model struct {
 	// Verbose
 	progressChan  chan string
 	scanningPaths []string
+	lastUpdated   time.Time
 
 	err           error
 	width, height int
@@ -43,14 +45,15 @@ type model struct {
 
 func initialModel(ctx types.ScanContext) model {
 	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = baseStyle
+	s.Spinner = spinner.MiniDot
+	s.Style = lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
 	return model{
 		spinner:      s,
 		isLoading:    true,
 		scanComplete: false,
 		ctx:          ctx,
 		progressChan: make(chan string, 1000),
+		lastUpdated:  time.Now(),
 	}
 }
 
@@ -215,6 +218,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case scanProgressMsg:
 		m.scanningPaths = append(m.scanningPaths, msg.path)
+		m.lastUpdated = time.Now()
 		return m, ListenForProgress(m.progressChan)
 	case deleteSuccessMsg:
 		// Update the UI to show "DELETED" and remove the module from the model
@@ -247,11 +251,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				m.deletedPaths = append(m.deletedPaths, msg.path)
-
 			}
 		}
 		return m, nil
-
 	}
 
 	return m, nil
@@ -269,30 +271,56 @@ func (m model) View() string {
 	if m.isLoading {
 		var b strings.Builder
 
-		// Scanning status
-		status := fmt.Sprintf("%s Scanning for node_modules...", m.spinner.View())
+		// Title
+		b.WriteString("\n")
+		b.WriteString(loadingTitleStyle.Render("📦 SWEEPY 📦"))
+		b.WriteString("\n\n")
+
+		// Scanning status centered with count
+		dirCount := len(m.scanningPaths)
+		status := scanningStatusStyle.Render(fmt.Sprintf(
+			"%s %s %s",
+			m.spinner.View(),
+			scanningLabelStyle.Render("Scanning for node_modules..."),
+			scanningCountStyle.Render(fmt.Sprintf("(%d found)", dirCount)),
+		))
 		b.WriteString(status)
 		b.WriteString("\n\n")
 
-		// Progress box
+		// Progress box with enhanced styling for paths
 		if m.ctx.Verbose && len(m.scanningPaths) > 0 {
+			var pathsContent strings.Builder
+
+			// Show latest paths, most recent at bottom
 			start := 0
-			if len(m.scanningPaths) > 8 {
-				start = len(m.scanningPaths) - 8
+			if len(m.scanningPaths) > 6 {
+				start = len(m.scanningPaths) - 6
 			}
-			var formattedPaths []string
+
+			// Add a header
+			pathsContent.WriteString(lipgloss.NewStyle().
+				Foreground(colorHeader).
+				Underline(true).
+				Render("Recently scanned paths:") + "\n\n")
+
 			for _, path := range m.scanningPaths[start:] {
 				// Truncate long paths with ellipsis
-				if len(path) > 76 {
-					path = path[:73] + "..."
+				if len(path) > 70 {
+					path = "..." + path[len(path)-67:]
 				}
-				formattedPaths = append(formattedPaths, path)
+				pathsContent.WriteString(loadingPathStyle.Render(path))
+				pathsContent.WriteString("\n")
 			}
-			paths := strings.Join(formattedPaths, "\n")
-			b.WriteString(loadingBoxStyle.Render(paths))
+
+			// Add the progress box to the view
+			b.WriteString(loadingBoxStyle.Render(pathsContent.String()))
+			b.WriteString("\n")
 		}
 
-		return baseStyle.Render(b.String())
+		// Footer with keybindings
+		b.WriteString(loadingFooterStyle.Render("Press q or Ctrl+C to quit"))
+
+		return b.String()
 	}
 
 	var b strings.Builder
