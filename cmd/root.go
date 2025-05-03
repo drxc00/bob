@@ -89,10 +89,7 @@ func Execute() {
 func init() {
 
 	// Flags to scanCmd
-	rootCmd.Flags().StringP("staleness", "s", "0", `
-	The staleness of the node_modules directory. Accepts the following formats: 1d, 1h, 1m, 1s
-	If no units are specified, it defaults to days.
-	`)
+	rootCmd.Flags().StringP("staleness", "s", "0", "The staleness of the node_modules directory. Accepts input in days. If no units are specified, it defaults to days.")
 	rootCmd.Flags().BoolP("no-cache", "c", false, "Disable caching")
 	rootCmd.Flags().BoolP("reset-cache", "r", false, "Reset the cache")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")

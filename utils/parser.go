@@ -7,37 +7,18 @@ import (
 )
 
 func ParseStalenessFlagValue(stalenessFlag string) (int64, error) {
-	// We want to parse the value of the staleness flag as an int64
-	// We accept the following formats:
-	// - 1d
-	// - 1h
-	// - 1m
-	// - 1s
-	pattern := `^(\d+)(d|h|m|s)$`
+	// Make sure that the staleness value is integer.
+	pattern := `^\d+$`
 	re := regexp.MustCompile(pattern)
-	matches := re.FindStringSubmatch(stalenessFlag)
-
-	if len(matches) != 3 {
-		return 0, fmt.Errorf("invalid staleness flag format: %s", stalenessFlag)
+	if !re.MatchString(stalenessFlag) {
+		return 0, fmt.Errorf("staleness flag must be an integer")
 	}
 
-	stalenessFlagInt, err := strconv.ParseInt(matches[1], 10, 32)
+	// Convert the staleness value to an integer
+	staleness, err := strconv.ParseInt(stalenessFlag, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid staleness flag format: %s", stalenessFlag)
+		return 0, fmt.Errorf("staleness flag must be an integer")
 	}
 
-	switch matches[2] {
-	case "d":
-		// Already in days, do nothing
-	case "h":
-		stalenessFlagInt /= 24 // Convert hours to days
-	case "m":
-		stalenessFlagInt /= (60 * 24) // Convert minutes to days
-	case "s":
-		stalenessFlagInt /= (60 * 60 * 24) // Convert seconds to days
-	default:
-		return 0, fmt.Errorf("invalid staleness flag format: %s", stalenessFlag)
-	}
-
-	return stalenessFlagInt, nil
+	return staleness, nil
 }

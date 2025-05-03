@@ -15,44 +15,14 @@ func TestParseStalenessFlagValue(t *testing.T) {
 	}{
 		{
 			name:        "Parse 1 day",
-			staleness:   "1d",
-			expectedInt: 1,
-			expectedErr: false,
-		},
-		{
-			name:        "Parse 1 hour",
-			staleness:   "1h",
-			expectedInt: 0,
-			expectedErr: false,
-		},
-		{
-			name:        "Parse 48 hours",
-			staleness:   "48h",
-			expectedInt: 2,
-			expectedErr: false,
-		},
-		{
-			name:        "Parse 1 minute",
-			staleness:   "1m",
-			expectedInt: 0,
-			expectedErr: false,
-		},
-		{
-			name:        "Parse 1 second",
-			staleness:   "1s",
-			expectedInt: 0,
-			expectedErr: false,
-		},
-		{
-			name:        "No units specified",
 			staleness:   "1",
 			expectedInt: 1,
-			expectedErr: true,
+			expectedErr: false,
 		},
 		{
-			name:        "No units specified",
-			staleness:   "24",
-			expectedInt: 24,
+			name:        "Parse 1 with units",
+			staleness:   "1day",
+			expectedInt: 0,
 			expectedErr: true,
 		},
 	}
