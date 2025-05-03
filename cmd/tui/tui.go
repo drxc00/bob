@@ -322,7 +322,7 @@ func (m model) View() string {
 		b.WriteString("\n\n")
 
 		// Progress box with enhanced styling for paths
-		if m.ctx.Verbose && len(m.scanningPaths) > 0 {
+		if len(m.scanningPaths) > 0 {
 			var pathsContent strings.Builder
 
 			// Show latest paths, most recent at bottom

@@ -76,25 +76,19 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 		// Check if the walk function encountered an error
 		if err != nil {
 			// For other errors, log but continue walking
-			if ctx.Verbose {
-				ch <- fmt.Sprintf("Error accessing path %s: %v", p, err)
-			}
+			ch <- fmt.Sprintf("Error accessing path %s: %v", p, err)
 			return fastwalk.SkipDir
 		}
 
 		if d == nil {
-			if ctx.Verbose {
-				ch <- fmt.Sprintf("Skipping nil directory entry at %s", p)
-			}
+			ch <- fmt.Sprintf("Skipping nil directory entry at %s", p)
 			return nil
 		}
 
 		// If the path is a directory and it's named "node_modules"
 		if d.IsDir() && d.Name() == "node_modules" {
 
-			if ctx.Verbose {
-				ch <- fmt.Sprintf("Scanning %s", p)
-			}
+			ch <- fmt.Sprintf("Scanning %s", p)
 
 			wg.Add(1) // Add to the wait group
 
@@ -109,9 +103,7 @@ func NodeScan(ctx types.ScanContext, ch chan<- string) ([]types.ScannedNodeModul
 
 				if lerr != nil {
 					utils.Log("Error when determining last modified: %v\n", lerr)
-					if ctx.Verbose {
-						ch <- fmt.Sprintf("Error when determining last modified: %v\n", lerr)
-					}
+					ch <- fmt.Sprintf("Error when determining last modified: %v\n", lerr)
 
 				}
 

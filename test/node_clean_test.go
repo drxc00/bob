@@ -83,7 +83,7 @@ func TestNodeClean(t *testing.T) {
 				t.Fatalf("Failed to save cache: %v", err)
 			}
 
-			t_ctx := types.NewScanContext(testDir, "0", true, false, false)
+			t_ctx := types.NewScanContext(testDir, "0", true, false)
 
 			// Convert relative paths to absolute
 			var absolutePaths []string

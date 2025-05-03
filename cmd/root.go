@@ -27,12 +27,6 @@ var rootCmd = &cobra.Command{
 		stalenessFlag, errStalenessFlag := cmd.Flags().GetString("staleness")
 		noCacheFlag, errNoCacheFlag := cmd.Flags().GetBool("no-cache")
 		resetCacheFlag, errResetCacheFlag := cmd.Flags().GetBool("reset-cache")
-		verboseFlag, errVerboseFlag := cmd.Flags().GetBool("verbose")
-
-		if errVerboseFlag != nil {
-			fmt.Fprintf(os.Stderr, "Error getting verbose flag: %v\n", errVerboseFlag)
-			os.Exit(1)
-		}
 
 		if errResetCacheFlag != nil {
 			fmt.Fprintf(os.Stderr, "Error getting reset-cache flag: %v\n", errResetCacheFlag)
@@ -69,7 +63,6 @@ var rootCmd = &cobra.Command{
 			stalenessFlag,
 			noCacheFlag,
 			resetCacheFlag,
-			verboseFlag,
 		)
 
 		tui.ScanNode(ctx)
@@ -92,7 +85,6 @@ func init() {
 	rootCmd.Flags().StringP("staleness", "s", "0", "The staleness of the node_modules directory. Accepts input in days. If no units are specified, it defaults to days.")
 	rootCmd.Flags().BoolP("no-cache", "c", false, "Disable caching")
 	rootCmd.Flags().BoolP("reset-cache", "r", false, "Reset the cache")
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 	rootCmd.Flags().BoolP("system", "y", false, "Scan the entire system for node_modules directories. Determines all drives and scans them.")
 
 }
