@@ -2,6 +2,8 @@
 
 > **Saving space using GO** - A lightweight CLI tool that scans your device for bloat and helps you clean it up.
 
+![Demo Gif](/static/demo.gif)
+
 Sweepy helps developers reclaim valuable disk space by identifying and removing unused `node_modules` directories that accumulate over time. Built with Go for performance and minimal resource usage.
 
 ![License](https://img.shields.io/github/license/drxc00/sweepy)
