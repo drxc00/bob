@@ -4,7 +4,7 @@
 
 ![Demo Gif](/static/demo.gif)
 
-Sweepy helps developers reclaim valuable disk space by identifying and removing unused `node_modules` directories that accumulate over time. Built with Go for performance and minimal resource usage.
+Sweepy helps developers reclaim valuable disk space by identifying and removing unused `node_modules` directories that accumulate over time from abandoned projects. It's a simple, fast, and efficient tool that can help you save precious space on your device.
 
 ![License](https://img.shields.io/github/license/drxc00/sweepy)
 
